@@ -7,3 +7,5 @@
 #   /blog/old-slug/ /blog/ 301
 #
 # Keep this file committed even when empty; it documents the contract.
+
+/sitemap.xml /sitemap-index.xml 301

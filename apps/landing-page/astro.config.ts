@@ -3,6 +3,11 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AstroUserConfig } from 'astro';
 import { defineConfig } from 'astro/config';
+import {
+  DEFAULT_LOCALE,
+  LANDING_LOCALES,
+  stripLocaleFromPath,
+} from './app/i18n';
 
 // Pull the Shiki theme shape off Astro's own config typing rather than
 // importing from `shiki` directly — Shiki is a transitive dependency of
@@ -104,7 +109,9 @@ const editorialPaperTheme: ShikiThemeObject = {
 // builds (Cloudflare Pages preview deployments, local previews on a
 // different host) can stamp their own URL without forking the config.
 const site = process.env.OD_LANDING_SITE ?? 'https://open-design.ai';
-const locales = ['en', 'id', 'de', 'zh-CN', 'zh-TW', 'pt-BR', 'es-ES', 'ru', 'fa', 'ar', 'ja', 'ko', 'pl', 'hu', 'fr', 'uk', 'tr', 'th', 'it'];
+const sitemapLocales = Object.fromEntries(
+  LANDING_LOCALES.map((locale) => [locale.code, locale.htmlLang]),
+);
 const changefreq = {
   daily: 'daily' as SitemapItem['changefreq'],
   weekly: 'weekly' as SitemapItem['changefreq'],
@@ -123,12 +130,6 @@ for (const file of readdirSync(blogDir)) {
     blogDates.set(`/blog/${slug}/`, match[1]!);
   }
 }
-
-const localePrefixPattern = new RegExp(`^/(${locales.join('|').replaceAll('-', '\\-')})(?=/|$)`);
-const stripLocalePrefix = (path: string) => {
-  const stripped = path.replace(localePrefixPattern, '');
-  return stripped.length > 0 ? stripped : '/';
-};
 
 export default defineConfig({
   output: 'static',
@@ -151,29 +152,51 @@ export default defineConfig({
   },
   integrations: [
     sitemap({
+      i18n: {
+        defaultLocale: DEFAULT_LOCALE,
+        locales: sitemapLocales,
+      },
+      namespaces: {
+        xhtml: true,
+      },
       // `/og/` is a screenshot surface for the 1200x630 Open Graph
       // image — it already carries `<meta name="robots" content="noindex">`
       // and is `Disallow`-ed from `public/robots.txt`. Filtering it
       // out of the sitemap keeps the index strictly canonical pages.
       filter: (page) => !page.includes('/og/'),
       serialize(item: SitemapItem) {
-        const path = new URL(item.url).pathname;
-        const canonicalPath = stripLocalePrefix(path);
-        if (canonicalPath === '/') {
+        const path = stripLocaleFromPath(new URL(item.url).pathname).pathname;
+        if (path === '/') {
           item.priority = 1.0;
           item.changefreq = changefreq.daily;
-        } else if (canonicalPath === '/blog/') {
+        } else if (path === '/blog/') {
           item.priority = 0.9;
           item.changefreq = changefreq.daily;
-        } else if (canonicalPath.startsWith('/blog/')) {
+        } else if (path.startsWith('/blog/')) {
           item.priority = 0.8;
           item.changefreq = changefreq.weekly;
-          const date = blogDates.get(canonicalPath);
+          const date = blogDates.get(path);
           if (date) item.lastmod = date;
         } else if (
-          canonicalPath === '/skills/' ||
-          canonicalPath === '/systems/' ||
-          canonicalPath === '/craft/'
+          // High-intent landing pages — these are the brand defense
+          // and commercial-intent surfaces from
+          // growth/seo-opendesigner-analysis.md. They should be
+          // crawled more often than the catalog and prioritized
+          // above generic detail pages.
+          path === '/official/' ||
+          path === '/quickstart/' ||
+          path === '/compare/' ||
+          path === '/agents/' ||
+          path === '/alternatives/claude-design/'
+        ) {
+          item.priority = 0.9;
+          item.changefreq = changefreq.weekly;
+        } else if (
+          path === '/skills/' ||
+          path === '/systems/' ||
+          path === '/templates/' ||
+          path === '/craft/' ||
+          path === '/plugins/'
         ) {
           item.priority = 0.7;
           item.changefreq = changefreq.weekly;

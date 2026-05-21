@@ -18,12 +18,20 @@ body.sub-page {
 }
 
 .sub-main {
-  padding: 140px 0 96px;
+  /* Only set vertical padding here. The element also has the `.container`
+   * class which provides the responsive horizontal gutter; using the
+   * `padding` shorthand instead would zero out left/right and let
+   * content touch the screen edge on mobile (issue #review-fix-8). */
+  padding-top: 140px;
+  padding-bottom: 96px;
   min-height: 60vh;
 }
 
 @media (max-width: 720px) {
-  .sub-main { padding: 120px 0 72px; }
+  .sub-main {
+    padding-top: 120px;
+    padding-bottom: 72px;
+  }
 }
 
 /* ---------- nav active state ---------- */
@@ -876,7 +884,7 @@ body.sub-page {
 }
 .sub-footer-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
   gap: 48px;
   margin-bottom: 36px;
 }
@@ -940,15 +948,15 @@ body.sub-page {
   .sub-footer { padding: 40px 0 24px; }
 }
 
-
 /* =========================================================
  * SEO landing pages — /official/, /quickstart/, /compare/,
  * /alternatives/claude-design/, /agents/
  * =========================================================
  *
  * Shared layout primitives for the high-intent, mostly-textual
- * pages. These reuse Atelier Zero tokens; they avoid the editorial
- * side rails and full hero, since these pages are query-legible first.
+ * pages added in growth/seo-opendesigner-analysis.md. These reuse
+ * Atelier Zero tokens; they avoid the editorial side rails and
+ * full hero, since these pages are query-legible first.
  */
 .info-page {
   max-width: 920px;
