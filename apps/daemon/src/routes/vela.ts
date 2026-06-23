@@ -59,11 +59,16 @@ function velaApiProxyBaseUrl(req: Request, getPublicBaseUrl: PublicBaseUrlResolv
   return `${getPublicBaseUrl(req)}${AMR_API_PROXY_PREFIX}`;
 }
 
-function velaProxyRequestBody(req: Request): Buffer | null {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Object.prototype.toString.call(value) === '[object Object]';
+}
+
+function velaProxyRequestBody(req: Request): Buffer | null | undefined {
   if (req.method === 'GET' || req.method === 'HEAD') return null;
   if (Buffer.isBuffer(req.body)) return req.body;
   if (typeof req.body === 'string') return Buffer.from(req.body);
   if (req.body == null) return null;
+  if (Array.isArray(req.body) || !isPlainObject(req.body)) return undefined;
   return Buffer.from(JSON.stringify(req.body));
 }
 
@@ -79,6 +84,10 @@ function proxyAmrApiRequest(req: Request, res: Response): void {
   }
   const target = new URL(suffix, AMR_API_UPSTREAM_ORIGIN);
   const body = velaProxyRequestBody(req);
+  if (body === undefined) {
+    res.status(400).json({ error: 'invalid_request_body_type' });
+    return;
+  }
   const streamBody = shouldStreamVelaProxyRequest(req, body);
   const headers: Record<string, string | string[]> = {};
   for (const [key, value] of Object.entries(req.headers)) {

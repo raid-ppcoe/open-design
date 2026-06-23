@@ -125,15 +125,19 @@ export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) 
     let task: ReturnType<typeof createMediaTask> | null = null;
     try {
       const taskId = randomUUID();
+      const body =
+        req.body && typeof req.body === 'object' && !Array.isArray(req.body)
+          ? req.body
+          : {};
       task = createMediaTask(taskId, projectId, {
-        surface: req.body?.surface,
-        model: req.body?.model,
+        surface: body?.surface,
+        model: body?.model,
       });
       console.error(
-        `[task ${taskId.slice(0, 8)}] queued model=${req.body?.model} ` +
-          `surface=${req.body?.surface} ` +
-          `image=${req.body?.image ? 'yes' : 'no'} ` +
-          `compositionDir=${req.body?.compositionDir ? 'yes' : 'no'}`,
+        `[task ${taskId.slice(0, 8)}] queued model=${body?.model} ` +
+          `surface=${body?.surface} ` +
+          `image=${body?.image ? 'yes' : 'no'} ` +
+          `compositionDir=${body?.compositionDir ? 'yes' : 'no'}`,
       );
 
       const proxyDispatcher = proxyDispatcherRequestInit(process.env, {
@@ -146,27 +150,27 @@ export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) 
         projectRoot: PROJECT_ROOT,
         projectsRoot: PROJECTS_DIR,
         projectId,
-        surface: req.body?.surface,
-        model: req.body?.model,
-        prompt: req.body?.prompt,
-        output: req.body?.output,
-        aspect: req.body?.aspect,
+        surface: body?.surface,
+        model: body?.model,
+        prompt: body?.prompt,
+        output: body?.output,
+        aspect: body?.aspect,
         length:
-          typeof req.body?.length === 'number' ? req.body.length : undefined,
+          typeof body?.length === 'number' ? body.length : undefined,
         duration:
-          typeof req.body?.duration === 'number'
-            ? req.body.duration
+          typeof body?.duration === 'number'
+            ? body.duration
             : undefined,
-        voice: req.body?.voice,
-        audioKind: req.body?.audioKind,
-        language: typeof req.body?.language === 'string' ? req.body.language : undefined,
-        loop: typeof req.body?.loop === 'boolean' ? req.body.loop : undefined,
-        promptInfluence: typeof req.body?.promptInfluence === 'number'
-          ? req.body.promptInfluence
+        voice: body?.voice,
+        audioKind: body?.audioKind,
+        language: typeof body?.language === 'string' ? body.language : undefined,
+        loop: typeof body?.loop === 'boolean' ? body.loop : undefined,
+        promptInfluence: typeof body?.promptInfluence === 'number'
+          ? body.promptInfluence
           : undefined,
-        compositionDir: req.body?.compositionDir,
-        image: req.body?.image,
-        images: Array.isArray(req.body?.images) ? req.body.images : undefined,
+        compositionDir: body?.compositionDir,
+        image: body?.image,
+        images: Array.isArray(body?.images) ? body.images : undefined,
         onProgress: (line: any) => appendTaskProgress(task, line),
         requestInit: proxyDispatcher.requestInit,
       })
