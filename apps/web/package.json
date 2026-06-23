@@ -45,7 +45,7 @@
     "motion": "12.40.0",
     "next": "16.2.6",
     "openai": "6.38.0",
-    "posthog-js": "1.374.2",
+    "posthog-js": "1.392.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "shiki": "4.1.0"
@@ -61,7 +61,7 @@
     "postcss": "8.5.15",
     "tailwindcss": "4.3.0",
     "typescript": "5.9.3",
-    "vitest": "4.1.6"
+    "vitest": "4.1.9"
   },
   "engines": {
     "node": "~24"

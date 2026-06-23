@@ -19,7 +19,7 @@
     "@fontsource-variable/inter-tight": "5.2.7",
     "@fontsource-variable/jetbrains-mono": "5.2.8",
     "@fontsource-variable/playfair-display": "5.2.8",
-    "astro": "6.3.5",
+    "astro": "6.4.8",
     "cobe": "2.0.1",
     "matter-js": "0.20.0",
     "react": "18.3.1",
