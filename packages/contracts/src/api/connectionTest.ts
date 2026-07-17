@@ -21,6 +21,15 @@ declare const URL: {
   new(input: string): ParsedBaseUrl;
 };
 
+// Strip a trailing run of `ch` with a linear scan. A `/ch+$/` regex is
+// polynomial on hostile input (e.g. "x" + ".".repeat(1e5)) because the engine
+// re-scans the run from every start position; a scan can't backtrack.
+function trimTrailingChar(value: string, ch: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === ch) end--;
+  return value.slice(0, end);
+}
+
 function normalizeBracketedIpv6(hostname: string): string {
   const stripped = hostname.startsWith('[') && hostname.endsWith(']')
     ? hostname.slice(1, -1)
@@ -29,7 +38,7 @@ function normalizeBracketedIpv6(hostname: string): string {
   // so `localhost.` must normalize to `localhost` before the equality check in
   // isLoopbackApiHost — and `0.0.0.0.`, `10.0.0.1.`, etc. must normalize before
   // isBlockedIpv4 parses them. Strips one or more trailing dots.
-  return stripped.toLowerCase().replace(/\.+$/, '');
+  return trimTrailingChar(stripped.toLowerCase(), '.');
 }
 
 function parseIpv4(hostname: string): [number, number, number, number] | null {
@@ -111,7 +120,7 @@ export function isBlockedExternalApiHostname(hostname: string): boolean {
 export function validateBaseUrl(baseUrl: string): BaseUrlValidationResult {
   let parsed: ParsedBaseUrl;
   try {
-    parsed = new URL(String(baseUrl).replace(/\/+$/, ''));
+    parsed = new URL(trimTrailingChar(String(baseUrl), '/'));
   } catch {
     return { error: 'Invalid baseUrl' };
   }

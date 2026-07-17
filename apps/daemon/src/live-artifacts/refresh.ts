@@ -336,6 +336,9 @@ function writeMappedValue(root: BoundedJsonObject, path: string, value: BoundedJ
       continue;
     }
 
+    if (isUnsafeObjectKey(segment)) {
+      throw new Error('outputMapping.dataPaths.to segments must not use prototype-polluting keys (__proto__, constructor, prototype)');
+    }
     if (isLast) {
       current[segment] = value;
       return;
@@ -346,6 +349,15 @@ function writeMappedValue(root: BoundedJsonObject, path: string, value: BoundedJ
     }
     current = current[segment] as BoundedJsonObject | BoundedJsonValue[];
   }
+}
+
+// Keys that mutate the prototype chain when assigned through a bracket write.
+// Any object key that traces to user-configured mapping / merged source data
+// is checked against this set before assignment so a crafted `__proto__`
+// segment can't pollute Object.prototype.
+const UNSAFE_OBJECT_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+function isUnsafeObjectKey(key: string): boolean {
+  return UNSAFE_OBJECT_KEYS.has(key);
 }
 
 function applyDataPaths(output: BoundedJsonObject, dataPaths: NonNullable<LiveArtifactSource['outputMapping']>['dataPaths']): BoundedJsonObject {
@@ -453,6 +465,9 @@ function cloneBoundedJsonObject(value: BoundedJsonObject): BoundedJsonObject {
 
 function deepMergeBoundedJsonObject(target: BoundedJsonObject, source: BoundedJsonObject): void {
   for (const [key, value] of Object.entries(source)) {
+    // Skip prototype-polluting keys before any write — `source` can carry
+    // attacker-influenced fetched JSON.
+    if (isUnsafeObjectKey(key)) continue;
     const current = target[key];
     if (isJsonObject(current) && isJsonObject(value)) {
       deepMergeBoundedJsonObject(current, value);

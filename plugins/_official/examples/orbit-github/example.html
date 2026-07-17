@@ -730,11 +730,11 @@
   function buildUrl(label) {
     const t = (label || '').trim();
     const prMatch = t.match(/PR\s*#(\d+)/i);
-    if (prMatch) return REPO + '/pull/' + prMatch[1];
+    if (prMatch) return REPO + '/pull/' + encodeURIComponent(prMatch[1]);
     const issueIdMatch = t.match(/^[A-Z]+-(\d+)/);
     if (issueIdMatch) return REPO + '/issues?q=' + encodeURIComponent(t);
     const hashMatch = t.match(/#(\d+)/);
-    if (hashMatch) return REPO + '/issues/' + hashMatch[1];
+    if (hashMatch) return REPO + '/issues/' + encodeURIComponent(hashMatch[1]);
     return REPO;
   }
   document.querySelectorAll('.event-row').forEach(function(row) {

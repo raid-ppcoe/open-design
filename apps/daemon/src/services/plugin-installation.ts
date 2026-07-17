@@ -60,8 +60,11 @@ export function normalizeProjectPluginFolderPath(input: unknown) {
 }
 
 export async function resolveProjectChildDirectory(projectRoot: string, relativePath: string) {
+  // Re-sanitize here (idempotent with callers) so the traversal check is
+  // visible right before the path is resolved/realpath'd.
+  const safeRelative = normalizeProjectPluginFolderPath(relativePath);
   const rootReal = await fs.promises.realpath(projectRoot);
-  const candidate = path.resolve(projectRoot, relativePath);
+  const candidate = path.resolve(rootReal, safeRelative);
   const real = await fs.promises.realpath(candidate);
   if (!real.startsWith(rootReal + path.sep) && real !== rootReal) {
     throw new Error('plugin folder path escapes project dir');

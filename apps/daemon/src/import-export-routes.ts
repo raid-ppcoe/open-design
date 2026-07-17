@@ -8,6 +8,7 @@ import {
   inlineRelativeAssets,
   type InlineAssetReader,
 } from './inline-assets.js';
+import { writeRateLimit } from './lib/rate-limit.js';
 import { authorizeReasoningEgress, sendReasoningEgressDenial } from './reasoning-egress.js';
 import { sandboxImportedProjectRootUnavailableReason } from './sandbox-mode.js';
 import { parseOrchestratorWorkspace } from './workspace-contract.js';
@@ -101,7 +102,7 @@ export function registerImportRoutes(app: Express, ctx: RegisterImportRoutesDeps
   // Replace an existing project's working directory in-place. Mirrors
   // the same trust-gate, realpath, and data-dir checks as folder import,
   // but updates metadata.baseDir on an existing project record.
-  app.post('/api/projects/:id/working-dir', async (req, res) => {
+  app.post('/api/projects/:id/working-dir', writeRateLimit(), async (req, res) => {
     try {
       const projectId = req.params.id;
       const existing = getProject(db, projectId);
@@ -228,7 +229,7 @@ export function registerImportRoutes(app: Express, ctx: RegisterImportRoutesDeps
     }
   });
 
-  app.post('/api/import/folder', async (req, res) => {
+  app.post('/api/import/folder', writeRateLimit(), async (req, res) => {
     try {
       const { baseDir, name, skillId, designSystemId, orchestratorWorkspace } = req.body || {};
       if (typeof baseDir !== 'string' || !baseDir.trim()) {
@@ -961,7 +962,7 @@ export function registerFinalizeRoutes(app: Express, ctx: RegisterFinalizeRoutes
     isFinalizeProviderProtocol,
     redactSecrets,
   } = ctx.finalize;
-  app.post('/api/projects/:id/finalize/:provider', async (req, res) => {
+  app.post('/api/projects/:id/finalize/:provider', writeRateLimit(), async (req, res) => {
     const { apiKey, baseUrl, model, maxTokens, apiVersion, protocol: bodyProtocol, reasoningExecution } = req.body || {};
     try {
       // Centralized path-traversal guard. `isSafeId` (apps/daemon/src/projects.ts)
@@ -974,7 +975,7 @@ export function registerFinalizeRoutes(app: Express, ctx: RegisterFinalizeRoutes
         return sendApiError(res, 400, 'BAD_REQUEST', 'invalid project id');
       }
 
-      const protocol = req.params.provider;
+      const protocol = String(req.params.provider);
       if (!isFinalizeProviderProtocol(protocol)) {
         return sendApiError(
           res,

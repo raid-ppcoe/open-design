@@ -260,7 +260,7 @@ redistributing.
 
 function frontmatter(t) {
   const triggers = t.triggers
-    .map((s) => `  - "${s.replace(/"/g, '\\"')}"`)
+    .map((s) => `  - "${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
     .join('\n');
   return [
     '---',

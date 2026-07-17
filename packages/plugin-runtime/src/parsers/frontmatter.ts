@@ -16,6 +16,13 @@ export type FrontmatterValue = FrontmatterScalar | FrontmatterArray | Frontmatte
 export interface FrontmatterArray extends Array<FrontmatterValue> {}
 export interface FrontmatterObject extends Record<string, FrontmatterValue> {}
 type FrontmatterContainer = FrontmatterObject | FrontmatterArray;
+
+// Untrusted frontmatter keys must never write to prototype slots, or a
+// `__proto__:`/`constructor:`/`prototype:` line could pollute Object.prototype
+// for the whole process. Guard every key-driven assignment below with this.
+function isSafeKey(k: string): boolean {
+  return k !== '__proto__' && k !== 'constructor' && k !== 'prototype';
+}
 type StackEntry = {
   indent: number;
   container: FrontmatterContainer;
@@ -92,6 +99,10 @@ function parseYamlSubset(src: string): FrontmatterObject {
       if (!Array.isArray(container)) {
         const parent = stack[stack.length - 2];
         if (parent && top.key) {
+          if (!isSafeKey(top.key)) {
+            i++;
+            continue;
+          }
           if (Array.isArray(parent.container)) {
             throw new Error('invalid frontmatter array nesting');
           }
@@ -127,6 +138,11 @@ function parseYamlSubset(src: string): FrontmatterObject {
     }
     const key = (kv[1] ?? '').trim();
     const val = kv[2];
+
+    if (!isSafeKey(key)) {
+      i++;
+      continue;
+    }
 
     if (val === '' || val === undefined) {
       if (Array.isArray(top.container)) throw new Error('frontmatter object container expected');

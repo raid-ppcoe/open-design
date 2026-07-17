@@ -1,6 +1,7 @@
 import type { Express } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import { readRateLimit } from './lib/rate-limit.js';
 
 export interface StaticSpaFallbackRequestLike {
   method: string;
@@ -26,7 +27,7 @@ export function resolveStaticSpaFallbackPath(req: StaticSpaFallbackRequestLike, 
 }
 
 export function registerStaticSpaFallback(app: Express, staticDir: string): void {
-  app.get('/*splat', (req, res, next) => {
+  app.get('/*splat', readRateLimit(), (req, res, next) => {
     const indexPath = resolveStaticSpaFallbackPath(req, staticDir);
     if (indexPath == null) return next();
     res.sendFile(indexPath);

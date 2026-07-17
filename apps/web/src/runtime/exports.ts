@@ -1097,7 +1097,11 @@ export function reportPrintSizeWhenStable(
 }
 
 function injectPrintScript(doc: string, title: string): string {
-  const safeTitle = JSON.stringify(title || 'artifact');
+  // JSON.stringify safely quotes the title as a JS string literal, but it does
+  // not escape `<`, so a title containing `</script>` would break out of the
+  // injected inline script. Escape `<` to its JS unicode form (which parses
+  // back to the same character) to keep the string literal inert.
+  const safeTitle = JSON.stringify(title || 'artifact').replace(/</g, '\\u003c');
   // Browser fallback PDF export shares the same print-readiness signal as the
   // desktop native path. When the cache is present, wait for it so the popup
   // prints only after fonts, images, CSS image URLs, and final layout have

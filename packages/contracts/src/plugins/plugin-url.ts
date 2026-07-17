@@ -19,15 +19,25 @@
 // Canonical public site origin for shareable plugin links.
 export const OPEN_DESIGN_SITE_ORIGIN = 'https://open-design.ai';
 
+// Strip a run of `ch` from one or both ends without a `$`-anchored greedy
+// regex. `/^-+|-+$/` and friends are polynomial on hostile input such as
+// `"a" + "-".repeat(1e5) + "b"`; a linear scan can't backtrack.
+function trimEdgeChar(
+  value: string,
+  ch: string,
+  ends: 'both' | 'end' = 'both',
+): string {
+  let start = 0;
+  let end = value.length;
+  if (ends === 'both') while (start < end && value[start] === ch) start++;
+  while (end > start && value[end - 1] === ch) end--;
+  return value.slice(start, end);
+}
+
 // Slugify one path segment: lower-cased, non-url-safe runs collapsed to `-`,
 // leading/trailing `-` trimmed. Must match the landing site byte-for-byte.
 export function pluginSlugSegment(value: string): string {
-  return (
-    value
-      .toLowerCase()
-      .replace(/[^a-z0-9._-]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'plugin'
-  );
+  return trimEdgeChar(value.toLowerCase().replace(/[^a-z0-9._-]+/g, '-'), '-') || 'plugin';
 }
 
 // Single-segment detail slug = slugified last `/`-segment of the id, e.g.
@@ -68,5 +78,5 @@ export function pluginShareUrl(
   id: string,
   origin: string = OPEN_DESIGN_SITE_ORIGIN,
 ): string {
-  return `${origin.replace(/\/+$/, '')}${pluginDetailPath(id)}`;
+  return `${trimEdgeChar(origin, '/', 'end')}${pluginDetailPath(id)}`;
 }

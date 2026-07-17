@@ -161,7 +161,11 @@ function estimateTokens(text: string): number {
 }
 
 function slugify(value: string): string {
+  // Bound the input to a constant before the trim regexes run: the anchored
+  // `-+$` alternation is polynomial on a hostile all-separator string, and the
+  // result is capped to 60 anyway.
   const cleaned = value
+    .slice(0, 256)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')

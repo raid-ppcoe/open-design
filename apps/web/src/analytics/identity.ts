@@ -6,24 +6,17 @@
 
 import type { AnalyticsClientType } from '@open-design/contracts/analytics';
 import { detectOpenDesignHostClientType } from '@open-design/host';
+import { randomUUID } from '../utils/uuid';
 
 const ANONYMOUS_ID_KEY = 'open-design:analytics.anonymous_id';
 const SESSION_ID_KEY = 'open-design:analytics.session_id';
 const RUN_TURN_INDEX_KEY = 'open-design:analytics.run_turn_index';
 
 function randomUuid(): string {
-  // Prefer the standard crypto.randomUUID — present in every modern browser
-  // and Node 19+. The Math.random fallback is for jsdom builds that ship
-  // without crypto.randomUUID and for very old browsers; it does not need
-  // to be cryptographically strong, only unique-enough for a session id.
-  const c: Crypto | undefined =
-    typeof globalThis !== 'undefined' ? globalThis.crypto : undefined;
-  if (c?.randomUUID) return c.randomUUID();
-  return `xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`.replace(/[xy]/g, (ch) => {
-    const r = (Math.random() * 16) | 0;
-    const v = ch === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+  // Delegates to the shared tiered generator (crypto.randomUUID →
+  // crypto.getRandomValues), which keeps analytics ids on Web Crypto entropy
+  // instead of Math.random even in non-secure contexts.
+  return randomUUID();
 }
 
 export function getAnonymousId(): string {

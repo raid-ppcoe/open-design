@@ -35,6 +35,7 @@ import {
   type LocalDesignSystemImportResult,
   importLocalDesignSystemProject,
 } from './import.js';
+import { assertOutboundUrlAllowed } from '../lib/ssrf.js';
 
 const FETCH_TIMEOUT_MS = 15_000;
 // Whole-import wall-clock ceiling, independent of the per-request timeout.
@@ -834,7 +835,12 @@ function defaultShadcnFetch(): ShadcnFetch {
   // redirect:'error' blocks redirect-based SSRF — a validated https registry URL
   // cannot bounce the daemon to a disallowed internal http target (e.g.
   // 169.254.169.254). Every hop is re-checked by fetchText's host validation.
-  return (url, init) => fetch(url, { ...init, redirect: 'error' });
+  // assertOutboundUrlAllowed normalizes the URL and re-asserts the http/https
+  // protocol at the sink. allowLoopback: true because assertFetchableUrl (the
+  // authoritative gate) intentionally permits loopback registries; private/
+  // link-local hosts are already refused there.
+  return (url, init) =>
+    fetch(assertOutboundUrlAllowed(url, { allowLoopback: true }), { ...init, redirect: 'error' });
 }
 
 function isAbortError(err: unknown): boolean {

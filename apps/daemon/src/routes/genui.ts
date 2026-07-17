@@ -12,6 +12,7 @@ import {
   revokeProjectSurface,
 } from '../genui/index.js';
 import { resolveProjectDir } from '../projects.js';
+import { readRateLimit, writeRateLimit } from '../lib/rate-limit.js';
 
 export interface RegisterGenuiRoutesDeps {
   db: Database.Database;
@@ -47,7 +48,7 @@ export function registerGenuiRoutes(app: Express, deps: RegisterGenuiRoutesDeps)
     }
   });
 
-  app.post('/api/runs/:runId/genui/:surfaceId/respond', async (req, res) => {
+  app.post('/api/runs/:runId/genui/:surfaceId/respond', writeRateLimit(), async (req, res) => {
     try {
       const body = req.body && typeof req.body === 'object' ? req.body : {};
       const value = 'value' in body ? body.value : null;
@@ -65,16 +66,16 @@ export function registerGenuiRoutes(app: Express, deps: RegisterGenuiRoutesDeps)
         return res.status(404).json({ error: 'no pending surface for runId/surfaceId' });
       }
       const updated = respondSurfaceRow(db, {
-        runId: req.params.runId,
+        runId: String(req.params.runId),
         rowId: row.id,
         value,
         respondedBy,
       });
 
       let diffReviewBridge: { ok: boolean; error?: string } | undefined;
-      if (isDiffReviewSurfaceId(req.params.surfaceId)) {
+      if (isDiffReviewSurfaceId(String(req.params.surfaceId))) {
         try {
-          const run = design.runs.get(req.params.runId);
+          const run = design.runs.get(String(req.params.runId));
           const projectId = run?.projectId ?? null;
           if (projectId) {
             const project = getProject(db, projectId);
@@ -147,7 +148,7 @@ export function registerGenuiRoutes(app: Express, deps: RegisterGenuiRoutesDeps)
     }
   });
 
-  app.get('/api/runs/:runId/genui/:surfaceId', (req, res) => {
+  app.get('/api/runs/:runId/genui/:surfaceId', readRateLimit(), (req, res) => {
     try {
       const row = db.prepare(
         `SELECT id FROM genui_surfaces

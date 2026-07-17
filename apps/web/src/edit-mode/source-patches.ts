@@ -233,7 +233,9 @@ function setCssToken(doc: Document, token: string, value: string): boolean {
 
 function cssEscape(value: string): string {
   if (typeof CSS !== 'undefined' && CSS.escape) return CSS.escape(value);
-  return value.replace(/"/g, '\\"');
+  // Escape backslash first (via a single character-class pass) so a value like
+  // `a\` does not produce an unbalanced trailing escape.
+  return value.replace(/[\\"]/g, '\\$&');
 }
 
 function escapeRegExp(value: string): string {

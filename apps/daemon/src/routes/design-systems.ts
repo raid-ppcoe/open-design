@@ -1,5 +1,7 @@
 import type { Express } from 'express';
 import fsp from 'node:fs/promises';
+import path from 'node:path';
+import { readRateLimit } from '../lib/rate-limit.js';
 import type { RouteDeps } from '../server-context.js';
 import type {
   DesignSystemFileDetail,
@@ -207,7 +209,8 @@ export function registerDesignSystemRoutes(app: Express, ctx: RegisterDesignSyst
       const html = renderDesignSystemPreview(req.params.id, body);
       res.type('text/html').send(html);
     } catch (err) {
-      res.status(500).type('text/plain').send(String(err));
+      console.error('[design-systems] preview render failed', err);
+      res.status(500).type('text/plain').send('failed to render preview');
     }
   });
 
@@ -218,7 +221,8 @@ export function registerDesignSystemRoutes(app: Express, ctx: RegisterDesignSyst
       const html = renderDesignSystemShowcase(req.params.id, body);
       res.type('text/html').send(html);
     } catch (err) {
-      res.status(500).type('text/plain').send(String(err));
+      console.error('[design-systems] showcase render failed', err);
+      res.status(500).type('text/plain').send('failed to render showcase');
     }
   });
 
@@ -289,7 +293,7 @@ export function registerDesignSystemRoutes(app: Express, ctx: RegisterDesignSyst
     }
   });
 
-  app.get('/api/craft', async (_req, res) => {
+  app.get('/api/craft', readRateLimit(), async (_req, res) => {
     try {
       let entries;
       try {
@@ -323,14 +327,19 @@ export function registerDesignSystemRoutes(app: Express, ctx: RegisterDesignSyst
     }
   });
 
-  app.get('/api/craft/:id', async (req, res) => {
+  app.get('/api/craft/:id', readRateLimit(), async (req, res) => {
     try {
-      const slug = req.params.id;
+      const slug = String(req.params.id);
       if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
         return res.status(400).json({ error: 'invalid craft id' });
       }
+      const craftRoot = path.resolve(CRAFT_DIR);
+      const resolved = path.resolve(craftRoot, `${slug}.md`);
+      if (resolved !== craftRoot && !resolved.startsWith(craftRoot + path.sep)) {
+        return res.status(400).json({ error: 'invalid craft id' });
+      }
       try {
-        const text = await fsp.readFile(`${CRAFT_DIR}/${slug}.md`, 'utf8');
+        const text = await fsp.readFile(resolved, 'utf8');
         res.json({ id: slug, body: text });
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code === 'ENOENT') {

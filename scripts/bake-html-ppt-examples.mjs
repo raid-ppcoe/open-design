@@ -31,6 +31,18 @@ async function readMaybe(p) {
   }
 }
 
+// Remove every match, re-running until the string is stable so a removal that
+// exposes a fresh match can't leave a leftover tag behind.
+function stripAll(input, regex) {
+  let out = input;
+  let previous;
+  do {
+    previous = out;
+    out = out.replace(regex, '');
+  } while (out !== previous);
+  return out;
+}
+
 const sharedFonts = await readMaybe(path.join(ASSETS, 'fonts.css'));
 const sharedBase = await readMaybe(path.join(ASSETS, 'base.css'));
 const sharedAnimations = await readMaybe(
@@ -102,14 +114,8 @@ async function bakeOne(name) {
 
   // Drop the runtime + any FX runtime references — the static gallery only
   // shows slide 1 and these scripts would 404 inside the srcdoc sandbox.
-  html = html.replace(
-    /<script[^>]*src=["'][^"']*runtime\.js["'][^>]*><\/script>/g,
-    '',
-  );
-  html = html.replace(
-    /<script[^>]*src=["'][^"']*fx-runtime\.js["'][^>]*><\/script>/g,
-    '',
-  );
+  html = stripAll(html, /<script[^>]*src=["'][^"']*runtime\.js["'][^>]*><\/script>/g);
+  html = stripAll(html, /<script[^>]*src=["'][^"']*fx-runtime\.js["'][^>]*><\/script>/g);
 
   // Append the static fallback at the very end of <head> so it overrides
   // base.css's `.slide{opacity:0}`. We append rather than prepend to win

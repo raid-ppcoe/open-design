@@ -32,7 +32,9 @@ async function launchOnDarwin(command: string): Promise<TerminalLaunchResult> {
   // user actually sees the new window. Strict double-quote escaping
   // protects us if `command` ever grows special characters (today
   // it's just `agy`, so this is belt-and-suspenders).
-  const safe = command.replace(/"/g, '\\"');
+  // Escape backslashes BEFORE quotes so an embedded `\` can't pair with the
+  // following `"` and break out of the AppleScript string literal.
+  const safe = command.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const script = `tell application "Terminal" to do script "${safe}"\ntell application "Terminal" to activate`;
   try {
     await execFileAsync('osascript', ['-e', script], { timeout: 5_000 });

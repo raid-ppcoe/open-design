@@ -1118,7 +1118,7 @@ function buildFrontmatter(s: CuratedSkill): string {
   }
   lines.push('triggers:');
   for (const t of s.triggers) {
-    lines.push(`  - "${t.replace(/"/g, '\\"')}"`);
+    lines.push(`  - "${t.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`);
   }
   lines.push('od:');
   lines.push(`  mode: ${s.mode}`);

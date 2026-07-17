@@ -73,6 +73,7 @@ import {
 } from './agents.js';
 import { agentCliEnvForAgent, readAppConfig } from './app-config.js';
 import { createJsonEventStreamHandler } from './runtimes/json-event-stream.js';
+import { assertOutboundUrlAllowed } from './lib/ssrf.js';
 
 const SYSTEM_PROMPT = `You are a memory extractor for a personal AI design assistant.
 
@@ -680,7 +681,13 @@ function describeFetchError(err) {
 async function callAnthropic(provider, system, user) {
   let resp;
   try {
-    resp = await fetch(appendVersionedApiPath(provider.baseUrl, '/messages'), {
+    // allowLoopback: memory extraction can be pointed at a user-configured
+    // local endpoint (Ollama / LM Studio / a local proxy), so 127.0.0.1 is legit.
+    const target = assertOutboundUrlAllowed(
+      appendVersionedApiPath(provider.baseUrl, '/messages'),
+      { allowLoopback: true },
+    );
+    resp = await fetch(target, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -709,8 +716,13 @@ async function callAnthropic(provider, system, user) {
 async function callOpenAI(provider, system, user) {
   let resp;
   try {
-    resp = await fetch(
+    // allowLoopback: OpenAI-compatible endpoint may be a local server.
+    const target = assertOutboundUrlAllowed(
       appendVersionedApiPath(provider.baseUrl, '/chat/completions'),
+      { allowLoopback: true },
+    );
+    resp = await fetch(
+      target,
       {
         method: 'POST',
         headers: {
@@ -757,7 +769,9 @@ async function callAzure(provider, system, user) {
   const url = `${base}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
   let resp;
   try {
-    resp = await fetch(url, {
+    // allowLoopback: Azure/OpenAI-compatible base may be a local proxy.
+    const target = assertOutboundUrlAllowed(url, { allowLoopback: true });
+    resp = await fetch(target, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -793,7 +807,9 @@ async function callGoogle(provider, system, user) {
   const url = `${base}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(provider.apiKey)}`;
   let resp;
   try {
-    resp = await fetch(url, {
+    // allowLoopback: Gemini-compatible base may be a local proxy.
+    const target = assertOutboundUrlAllowed(url, { allowLoopback: true });
+    resp = await fetch(target, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({

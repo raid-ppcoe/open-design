@@ -501,8 +501,7 @@ const compactId = (value: string) =>
     .replace(/^example-/, '')
     .replace(/^design-system-/, '')
     .replace(/^video-template-/, '')
-    .replace(/^image-template-/, '')
-    .replace(/^od-/, 'od-');
+    .replace(/^image-template-/, '');
 
 const BLOG_TOPIC_TITLES: Record<string, Partial<Record<Exclude<LandingLocaleCode, 'en'>, string>>> = {
   '31-skills-72-systems-how-the-library-works': {

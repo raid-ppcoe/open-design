@@ -27,6 +27,7 @@ import {
   parsePluginSpecifier,
   resolveMarketplaceEntryVersion,
 } from '../registry/versioning.js';
+import { assertOutboundUrlAllowed } from '../lib/ssrf.js';
 
 type SqliteDb = Database.Database;
 
@@ -393,7 +394,10 @@ export async function refreshMarketplace(
 }
 
 async function defaultFetcher(url: string) {
-  const response = await fetch(url, { redirect: 'follow' });
+  // Block SSRF to private/loopback hosts and non-http(s) schemes before
+  // fetching a user-configured marketplace catalog URL.
+  const safeUrl = assertOutboundUrlAllowed(url);
+  const response = await fetch(safeUrl, { redirect: 'follow' });
   return {
     ok: response.ok,
     status: response.status,

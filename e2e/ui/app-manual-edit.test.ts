@@ -675,7 +675,7 @@ async function seedDeckArtifact(
 
 async function openDesignFile(page: Page, fileName: string) {
   const preview = artifactPreview(page);
-  const filePattern = new RegExp(fileName.replace(/\./g, '\\.'), 'i');
+  const filePattern = new RegExp(fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
   const fileTabButton = page.getByRole('tab', { name: filePattern }).first();
   let tabFound = true;
   try {

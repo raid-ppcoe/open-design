@@ -92,7 +92,7 @@ function pickBuildArtifacts(build: JsonRecord | null): JsonRecord {
 }
 
 function cell(value: unknown): string {
-  return String(value ?? "").replace(/\|/g, "\\|").replace(/[\r\n]+/g, " ");
+  return String(value ?? "").replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/[\r\n]+/g, " ");
 }
 
 function code(value: unknown): string {

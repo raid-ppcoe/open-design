@@ -6,6 +6,7 @@ import {
   type ChatSessionMode,
   type PluginManifest,
 } from '@open-design/contracts';
+import { readRateLimit, writeRateLimit } from '../../lib/rate-limit.js';
 import { readMeta as readBrandMeta } from '../../brands/store.js';
 import { createProjectArtifactFile } from '../../artifacts/create.js';
 import { ArtifactPublicationBlockedError } from '../../artifacts/publication-guard.js';
@@ -798,16 +799,26 @@ function daemonSafeFromCodePoint(cp: number): string {
   return String.fromCodePoint(cp);
 }
 
+const DAEMON_SPECIAL_ENTITY_MAP: Record<string, string> = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
+};
+
 function daemonDecodeHtmlEntitiesForTitle(encoded: string): string {
-  return encoded
-    .replace(/&([A-Za-z]+);/g, (match: string, name: string) => DAEMON_NAMED_ENTITY_MAP[name] ?? match)
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&apos;/gi, "'")
-    .replace(/&#(\d+);/g, (_: string, n: string) => daemonSafeFromCodePoint(Number(n)))
-    .replace(/&#x([0-9a-f]+);/gi, (_: string, h: string) => daemonSafeFromCodePoint(parseInt(h, 16)));
+  // Single pass: characters produced by decoding (e.g. the `&` from `&amp;`)
+  // must not be re-scanned, otherwise `&amp;lt;` would wrongly collapse to `<`
+  // (double unescaping).
+  return encoded.replace(
+    /&(?:#x([0-9a-fA-F]+)|#(\d+)|([A-Za-z]+));/g,
+    (match: string, hex: string, dec: string, name: string) => {
+      if (hex !== undefined) return daemonSafeFromCodePoint(parseInt(hex, 16));
+      if (dec !== undefined) return daemonSafeFromCodePoint(Number(dec));
+      const named = DAEMON_NAMED_ENTITY_MAP[name];
+      if (named !== undefined) return named;
+      const special = DAEMON_SPECIAL_ENTITY_MAP[name.toLowerCase()];
+      if (special !== undefined) return special;
+      return match;
+    },
+  );
 }
 
 function daemonSanitizePreviewTitle(text: string): string {
@@ -1237,7 +1248,7 @@ export function registerProjectRoutes(app: Express, ctx: RegisterProjectRoutesDe
     return { ...status, value: mapped, updatedAt: status.updatedAt ?? brandMeta.updatedAt };
   }
 
-  app.post('/api/projects', async (req, res) => {
+  app.post('/api/projects', writeRateLimit(), async (req, res) => {
     try {
       const { id, name, projectLocationId, skillId, designSystemId, pendingPrompt, metadata, customInstructions, skipDiscoveryBrief } =
         req.body || {};
@@ -1866,7 +1877,7 @@ export function registerProjectArtifactRoutes(app: Express, ctx: RegisterProject
   // The body is also passed through the anti-slop linter; findings are
   // returned alongside the path so the UI can render a P0/P1 badge and the
   // chat layer can splice them into a system reminder for the agent.
-  app.post('/api/artifacts/save', (req, res) => {
+  app.post('/api/artifacts/save', writeRateLimit(), (req, res) => {
     try {
       const { identifier, title, html } = req.body || {};
       if (typeof html !== 'string' || html.length === 0) {
@@ -2220,7 +2231,7 @@ export function registerProjectFileRoutes(app: Express, ctx: RegisterProjectFile
     }
   });
 
-  app.get(/^\/api\/projects\/([^/]+)\/preview\/([^/]+)\/(.+)$/u, async (req, res) => {
+  app.get(/^\/api\/projects\/([^/]+)\/preview\/([^/]+)\/(.+)$/u, readRateLimit(), async (req, res) => {
     try {
       const params = req.params as unknown as { 0?: string; 1?: string; 2?: string };
       const projectId = String(params[0] ?? '');
@@ -2282,7 +2293,7 @@ export function registerProjectFileRoutes(app: Express, ctx: RegisterProjectFile
     res.sendStatus(204);
   });
 
-  app.get(/^\/api\/projects\/([^/]+)\/raw\/(.+)$/u, async (req, res) => {
+  app.get(/^\/api\/projects\/([^/]+)\/raw\/(.+)$/u, readRateLimit(), async (req, res) => {
     try {
       const params = req.params as unknown as { 0?: string; 1?: string };
       const projectId = String(params[0] ?? '');

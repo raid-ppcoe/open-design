@@ -82,7 +82,9 @@ describe('POST /api/projects/:id/handoff — HTTP layer', () => {
     const realFetch = globalThis.fetch;
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = typeof input === 'string' ? input : (input as Request).url;
-      if (url.includes('api.anthropic.com')) {
+      let host = '';
+      try { host = new URL(url).hostname; } catch { /* non-URL input */ }
+      if (host === 'api.anthropic.com') {
         return new Response(body, { status, headers: { 'content-type': contentType } });
       }
       return realFetch(input, init);

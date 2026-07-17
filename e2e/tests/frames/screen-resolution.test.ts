@@ -18,7 +18,7 @@ const FRAME_FILES = [
 
 function extractFrameScript(htmlPath: string): string {
   const html = readFileSync(htmlPath, 'utf8');
-  const matches = html.matchAll(/<script>([\s\S]*?)<\/script>/g);
+  const matches = html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi);
   for (const m of matches) {
     const body = m[1];
     if (body != null && (body.includes("qs.get('screen')") || body.includes('qs.get("screen")'))) {

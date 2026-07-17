@@ -1,5 +1,7 @@
 import type { Express } from 'express';
 import type { RouteDeps } from '../server-context.js';
+import { readRateLimit, writeRateLimit } from '../lib/rate-limit.js';
+import { assertOutboundUrlAllowed } from '../lib/ssrf.js';
 import { seedProviderIfMissing } from '../media/config.js';
 import {
   buildLegacyMaxTokensParam,
@@ -164,7 +166,7 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
   // failures so the web layer can render a categorized inline status without
   // unwrapping nested error envelopes; real 4xx/5xx here mean a malformed
   // request or daemon bug.
-  app.post('/api/provider/models', async (req, res) => {
+  app.post('/api/provider/models', writeRateLimit(), async (req, res) => {
     const controller = new AbortController();
     const abortIfRequestAborted = () => {
       if ((req.aborted || !req.complete) && !res.writableEnded) {
@@ -240,7 +242,7 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
     }
   });
 
-  app.post('/api/test/connection', async (req, res) => {
+  app.post('/api/test/connection', writeRateLimit(), async (req, res) => {
     const controller = new AbortController();
     const abortIfRequestAborted = () => {
       if ((req.aborted || !req.complete) && !res.writableEnded) {
@@ -659,7 +661,7 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
     try {
       proxyDispatcher = proxyDispatcherRequestInit();
       sse.send('start', { model: opts.payload?.model });
-      const response = await fetch(opts.url, {
+      const response = await fetch(assertOutboundUrlAllowed(opts.url, { allowLoopback: true }), {
         ...proxyDispatcher.requestInit,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...opts.headers },
@@ -747,7 +749,7 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
     try {
       proxyDispatcher = proxyDispatcherRequestInit();
       sse.send('start', { model: opts.model });
-      const response = await fetch(opts.url, {
+      const response = await fetch(assertOutboundUrlAllowed(opts.url, { allowLoopback: true }), {
         ...proxyDispatcher.requestInit,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...opts.headers },
@@ -892,7 +894,7 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
     },
   ];
 
-  app.post('/api/proxy/anthropic/stream', async (req, res) => {
+  app.post('/api/proxy/anthropic/stream', writeRateLimit(), async (req, res) => {
     /** @type {Partial<ProxyStreamRequest>} */
     const proxyBody = req.body || {};
     if (rejectProxyPluginContext(proxyBody, res)) return;
@@ -938,7 +940,7 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
     });
   });
 
-  app.post('/api/proxy/openai/stream', async (req, res) => {
+  app.post('/api/proxy/openai/stream', writeRateLimit(), async (req, res) => {
     /** @type {Partial<ProxyStreamRequest>} */
     const proxyBody = req.body || {};
     if (rejectProxyPluginContext(proxyBody, res)) return;
@@ -996,7 +998,7 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
     try {
       proxyDispatcher = proxyDispatcherRequestInit();
       sse.send('start', { model });
-      const response = await fetch(url, {
+      const response = await fetch(assertOutboundUrlAllowed(url, { allowLoopback: true }), {
         ...proxyDispatcher.requestInit,
         method: 'POST',
         headers: {
@@ -1061,7 +1063,7 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
     }
   });
 
-  app.post('/api/proxy/azure/stream', async (req, res) => {
+  app.post('/api/proxy/azure/stream', writeRateLimit(), async (req, res) => {
     /** @type {Partial<ProxyStreamRequest>} */
     const proxyBody = req.body || {};
     if (rejectProxyPluginContext(proxyBody, res)) return;
@@ -1150,7 +1152,8 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
         },
         redirect: 'error' as const,
       };
-      let response = await fetch(url, {
+      const safeUrl = assertOutboundUrlAllowed(url, { allowLoopback: true });
+      let response = await fetch(safeUrl, {
         ...requestInit,
         body: JSON.stringify(payload),
       });
@@ -1164,7 +1167,7 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
           console.warn(
             `[proxy:azure] retrying request with max_completion_tokens deployment=${model}`,
           );
-          response = await fetch(url, {
+          response = await fetch(safeUrl, {
             ...requestInit,
             body: JSON.stringify(retryPayload),
           });
@@ -1223,7 +1226,7 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
     }
   });
 
-  app.post('/api/proxy/google/stream', async (req, res) => {
+  app.post('/api/proxy/google/stream', writeRateLimit(), async (req, res) => {
     /** @type {Partial<ProxyStreamRequest>} */
     const proxyBody = req.body || {};
     if (rejectProxyPluginContext(proxyBody, res)) return;
@@ -1270,7 +1273,7 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
     });
   });
 
-  app.post('/api/proxy/ollama/stream', async (req, res) => {
+  app.post('/api/proxy/ollama/stream', writeRateLimit(), async (req, res) => {
     const proxyBody = req.body || {};
     if (rejectProxyPluginContext(proxyBody, res)) return;
     const { baseUrl, apiKey, model, systemPrompt, messages, maxTokens } = proxyBody;
@@ -1297,7 +1300,12 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
     });
     if (reasoningDenial) return sendReasoningEgressDenial(res, reasoningDenial);
 
-    const clean = effectiveBaseUrl.replace(/\/+$/, '').replace(/\/api\/?$/, '');
+    // Trim trailing slashes then an optional trailing /api segment without a
+    // backtracking regex (js/polynomial-redos on /\/+$/ over an untrusted URL).
+    let sliceEnd = effectiveBaseUrl.length;
+    while (sliceEnd > 0 && effectiveBaseUrl[sliceEnd - 1] === '/') sliceEnd -= 1;
+    let clean = effectiveBaseUrl.slice(0, sliceEnd);
+    if (clean.endsWith('/api')) clean = clean.slice(0, -4);
     const url = `${clean}/api/chat`;
     console.log(`[proxy:ollama] ${req.method} ${validated.parsed!.hostname} model=${model}`);
 
@@ -1316,7 +1324,7 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
     try {
       proxyDispatcher = proxyDispatcherRequestInit();
       sse.send('start', { model });
-      const response = await fetch(url, {
+      const response = await fetch(assertOutboundUrlAllowed(url, { allowLoopback: true }), {
         ...proxyDispatcher.requestInit,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
@@ -1426,7 +1434,7 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
     routePath: string,
     opts: ByokToolChatProxyOptions,
   ) => {
-   app.post(routePath, async (req, res) => {
+   app.post(routePath, writeRateLimit(), async (req, res) => {
     const proxyBody = req.body || {};
     if (rejectProxyPluginContext(proxyBody, res)) return;
     const {
@@ -1747,7 +1755,7 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
         tools: openaiToolsToAnthropic(opts.tools),
         tool_choice: { type: 'auto' },
       };
-      const response = await fetch(anthropicUrl, {
+      const response = await fetch(assertOutboundUrlAllowed(anthropicUrl, { allowLoopback: true }), {
         ...toolCtx.requestInit,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers },
@@ -1908,7 +1916,7 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
       if (typeof systemPrompt === 'string' && systemPrompt) {
         payload.systemInstruction = { parts: [{ text: systemPrompt }] };
       }
-      const response = await fetch(geminiUrl, {
+      const response = await fetch(assertOutboundUrlAllowed(geminiUrl, { allowLoopback: true }), {
         ...toolCtx.requestInit,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers },
@@ -2214,7 +2222,7 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
     routeByModel: true,
   });
 
-  app.post('/api/proxy/:provider/stream', (req, res) => {
+  app.post('/api/proxy/:provider/stream', writeRateLimit(), (req, res) => {
     const proxyBody = req.body || {};
     const provider = typeof req.params.provider === 'string' ? req.params.provider : 'unknown';
     const reasoningDenial = authorizeReasoningEgress({

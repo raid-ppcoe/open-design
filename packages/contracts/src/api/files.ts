@@ -141,6 +141,10 @@ export function buildProjectRawFileUrl(
     .join('/');
   if (segments.length === 0) return null;
 
-  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
+  // Trim trailing slashes with a linear scan; `/\/+$/` is polynomial on a
+  // hostile `baseUrl` like "http://x" + "/".repeat(1e5) + "y".
+  let baseEnd = baseUrl.length;
+  while (baseEnd > 0 && baseUrl[baseEnd - 1] === '/') baseEnd--;
+  const normalizedBaseUrl = baseUrl.slice(0, baseEnd);
   return `${normalizedBaseUrl}/api/projects/${encodeURIComponent(projectId)}/raw/${segments}`;
 }

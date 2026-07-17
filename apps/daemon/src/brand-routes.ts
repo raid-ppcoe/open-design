@@ -14,6 +14,7 @@ import path from 'node:path';
 
 import type { Application, Request, Response } from 'express';
 
+import { readRateLimit } from './lib/rate-limit.js';
 import {
   getProject,
   listLatestProjectRunStatuses,
@@ -200,7 +201,7 @@ export function registerBrandRoutes(app: Application, deps: BrandRoutesDeps): vo
   });
 
   // GET /api/brands/:id/logo — serve the primary logo image. 404 if none.
-  app.get('/api/brands/:id/logo', (req: Request, res: Response) => {
+  app.get('/api/brands/:id/logo', readRateLimit(), (req: Request, res: Response) => {
     try {
       const id = String(req.params.id);
       const logoPath =

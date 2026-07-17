@@ -163,7 +163,13 @@ export async function generateSkillPluginDraft(
   if (!candidate || candidate.projectId !== projectId || candidate.status === 'dismissed') return null;
   const slug = uniqueSlug(slugify(candidate.title || 'skill-plugin'));
   const draftPath = `plugin-source/${slug}`;
-  const folder = path.join(projectRoot, ...draftPath.split('/'));
+  const projectRootResolved = path.resolve(projectRoot);
+  const folder = path.resolve(projectRootResolved, ...draftPath.split('/'));
+  // slugify() already restricts the slug, but assert containment so the
+  // draft folder can never escape the project root.
+  if (folder !== projectRootResolved && !folder.startsWith(projectRootResolved + path.sep)) {
+    throw new Error('draft path escapes project root');
+  }
   await fs.mkdir(path.join(folder, 'references'), { recursive: true });
   await fs.writeFile(path.join(folder, 'SKILL.md'), synthesizeSkill(candidate), 'utf8');
   await fs.writeFile(path.join(folder, 'open-design.json'), JSON.stringify(buildManifest(slug, candidate), null, 2) + '\n', 'utf8');

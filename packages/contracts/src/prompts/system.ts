@@ -108,8 +108,11 @@ export function formatElevenLabsVoiceOptionsErrorForPrompt(
     return `${ELEVENLABS_VOICE_OPTIONS_PROMPT_PREFIX} because the ElevenLabs API key is missing. Tell the user to configure it in Settings or paste a voice id manually.`;
   }
 
+  // A single fixed `\s` separates the code from the (unused) status-text
+  // capture so no two adjacent quantifiers overlap on the space character —
+  // the `\s+([^)]+)` form was polynomial on an unterminated `(123␠␠␠…` run.
   const statusMatch = trimmed.match(
-    /(?:\((\d{3})(?:\s+([^)]+))?\)|\b(\d{3})(?:\s+([A-Za-z][A-Za-z -]{0,40}))?\b)/,
+    /(?:\((\d{3})(?:\s([^)]*))?\)|\b(\d{3})(?:\s([A-Za-z][A-Za-z -]{0,40}))?\b)/,
   );
   if (statusMatch) {
     const statusCode = statusMatch[1] ?? statusMatch[3];

@@ -119,19 +119,28 @@ function safeFromCodePoint(cp: number): string {
  * of throwing RangeError.
  */
 function decodeHtmlEntitiesForTitle(encoded: string): string {
-  return encoded
-    // Named non-ASCII entities first — before the standard 5 named entities
-    // below, so &amp; still converts to & (not left as a lookup miss).
-    .replace(/&([A-Za-z]+);/g, (match, name: string) => NAMED_ENTITY_MAP[name] ?? match)
-    // Standard 5 named entities.
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&apos;/gi, "'")
-    // Numeric entities — range-checked to avoid RangeError on huge code points.
-    .replace(/&#(\d+);/g, (_, n: string) => safeFromCodePoint(Number(n)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, h: string) => safeFromCodePoint(parseInt(h, 16)));
+  // Decode every entity in a SINGLE pass so no output of one replacement is
+  // re-interpreted by a later one. Decoding `&amp;` before the others would
+  // double-unescape (`&amp;lt;` → `<` instead of the literal `&lt;`).
+  const STANDARD5: Record<string, string> = {
+    amp: '&',
+    lt: '<',
+    gt: '>',
+    quot: '"',
+    apos: "'",
+  };
+  return encoded.replace(
+    /&(?:([A-Za-z]+)|#(\d+)|#x([0-9a-f]+));/gi,
+    (match, name: string | undefined, dec: string | undefined, hex: string | undefined) => {
+      if (dec !== undefined) return safeFromCodePoint(Number(dec));
+      if (hex !== undefined) return safeFromCodePoint(parseInt(hex, 16));
+      if (name === undefined) return match;
+      // Standard 5 match case-insensitively; named non-ASCII map is case-sensitive.
+      const standard = STANDARD5[name.toLowerCase()];
+      if (standard !== undefined) return standard;
+      return NAMED_ENTITY_MAP[name] ?? match;
+    },
+  );
 }
 
 /**

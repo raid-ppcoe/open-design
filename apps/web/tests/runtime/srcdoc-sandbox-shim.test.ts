@@ -35,7 +35,7 @@ import { buildSrcdoc } from '../../src/runtime/srcdoc';
 // without spinning up a real iframe.
 function extractScriptBodies(doc: string): string[] {
   const bodies: string[] = [];
-  const re = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+  const re = /<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi;
   let match: RegExpExecArray | null;
   while ((match = re.exec(doc)) !== null) {
     bodies.push(match[1] ?? '');

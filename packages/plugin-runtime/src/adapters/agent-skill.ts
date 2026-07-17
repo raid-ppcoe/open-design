@@ -168,6 +168,9 @@ function examplePromptFromFrontmatter(fm: FrontmatterObject, body: string): stri
     if (firstLine) return firstLine;
   }
   // Last resort — use the first non-frontmatter heading from the body.
-  const heading = /^#\s+(.+)$/m.exec(body);
+  // Capture starts with a mandatory `\S` so the `[ \t]+` separator and the
+  // heading text never share the space character — avoids the polynomial
+  // backtracking `#\s+(.+)` exhibits on a hostile all-whitespace line.
+  const heading = /^#[ \t]+(\S.*)$/m.exec(body);
   return heading?.[1]?.trim() ?? '';
 }

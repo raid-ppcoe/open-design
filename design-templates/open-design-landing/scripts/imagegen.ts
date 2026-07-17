@@ -163,7 +163,15 @@ function brandVarsBlock(inputs: EditorialCollageInputs): string {
   const eyebrow = `${inputs.hero.label} ${inputs.hero.ix}`;
   const headline = inputs.hero.headline.map((s) => s.text).join('');
   const italic = inputs.hero.headline.filter((s) => s.em).map((s) => `"${s.text}"`).join(', ');
-  const body = inputs.hero.lead.replace(/<[^>]+>/g, '').replace(/&[^;]+;/g, '');
+  // Strip tags repeatedly so removals that reveal a new tag can't be bypassed
+  // (e.g. "<<b>>" -> "<b>" -> ""), then drop HTML entities.
+  let stripped = inputs.hero.lead;
+  let prevStripped: string;
+  do {
+    prevStripped = stripped;
+    stripped = stripped.replace(/<[^>]*>/g, '');
+  } while (stripped !== prevStripped);
+  const body = stripped.replace(/&[^;]+;/g, '');
   return `Brand/logo text:        "${inputs.brand.name}"
 Navigation text:        ${navText}
 Eyebrow label:          "${eyebrow}"

@@ -308,11 +308,11 @@ export function parseMacosScutilProxyOutput(
         inExceptions = false;
         continue;
       }
-      const match = line.match(/^\d+\s*:\s*(.+)$/);
+      const match = line.match(/^\d+\s*:(.+)$/);
       if (match) exceptions.push(match[1].trim());
       continue;
     }
-    const match = line.match(/^([A-Za-z][A-Za-z0-9]*)\s*:\s*(.+)$/);
+    const match = line.match(/^([A-Za-z][A-Za-z0-9]*)\s*:(.+)$/);
     if (match) scalars.set(match[1], match[2].trim());
   }
 

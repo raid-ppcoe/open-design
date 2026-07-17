@@ -25,6 +25,14 @@ import type { DesktopUpdater } from "./updater.js";
 
 const execFileAsync = promisify(execFile);
 
+// Linear trailing-slash trim. Avoids the `/\/+$/` regex, whose `+`-next-to-`$`
+// shape backtracks quadratically on slash-heavy input (polynomial ReDoS).
+function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47 /* '/' */) end -= 1;
+  return value.slice(0, end);
+}
+
 /**
  * Result of validating a candidate path before exposing it to a
  * privileged shell operation.
@@ -153,7 +161,7 @@ export async function fetchResolvedProjectDir(
   }
   let resp: Response;
   try {
-    resp = await fetchImpl(`${apiBaseUrl.replace(/\/+$/, "")}/api/projects/${encodeURIComponent(projectId)}`);
+    resp = await fetchImpl(`${stripTrailingSlashes(apiBaseUrl)}/api/projects/${encodeURIComponent(projectId)}`);
   } catch (err) {
     return { ok: false, reason: `daemon fetch failed: ${err instanceof Error ? err.message : String(err)}` };
   }
@@ -444,7 +452,7 @@ export async function pickAndImportFolder(
 ): Promise<PickAndImportFolderResult> {
   const fetchImpl = deps.fetchImpl ?? globalThis.fetch;
   const mint = deps.mintToken ?? mintImportToken;
-  const importUrl = `${deps.apiBaseUrl.replace(/\/+$/, "")}/api/import/folder`;
+  const importUrl = `${stripTrailingSlashes(deps.apiBaseUrl)}/api/import/folder`;
   const requestBody = JSON.stringify({
     baseDir: deps.baseDir,
     ...(deps.init?.name == null ? {} : { name: deps.init.name }),
@@ -548,7 +556,7 @@ export async function pickAndReplaceWorkingDir(
   if (!/^[A-Za-z0-9._-]{1,128}$/.test(deps.projectId)) {
     return { ok: false, reason: "project id contains disallowed characters" };
   }
-  const workingDirUrl = `${deps.apiBaseUrl.replace(/\/+$/, "")}/api/projects/${encodeURIComponent(deps.projectId)}/working-dir`;
+  const workingDirUrl = `${stripTrailingSlashes(deps.apiBaseUrl)}/api/projects/${encodeURIComponent(deps.projectId)}/working-dir`;
   const requestBody = JSON.stringify({ baseDir: deps.baseDir });
 
   async function postOnce(): Promise<Response | { ok: false; reason: string }> {

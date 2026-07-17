@@ -4,6 +4,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import type { DesignSystemTokenContractRebuildJobResponse } from '@open-design/contracts';
 import { detectAgents, detectAgentsStream } from '../agents.js';
+import { readRateLimit, writeRateLimit } from '../lib/rate-limit.js';
 import {
   SkillImportError,
   deleteUserSkill,
@@ -62,7 +63,7 @@ export function registerAtomRoutes(app: Express, ctx: RegisterAtomRoutesDeps) {
       const bodies = await loadAtomBodies(db, [id]);
       if (bodies[0] && typeof bodies[0].body === 'string') body.skillBody = bodies[0].body;
     } catch (err) {
-      console.warn(`[atoms] failed to load SKILL.md body for ${id}:`, err);
+      console.warn('[atoms] failed to load SKILL.md body for', id, err);
     }
     res.json(body);
   });
@@ -350,9 +351,9 @@ export function registerStaticResourceRoutes(app: Express, ctx: RegisterStaticRe
     }
   });
 
-  app.get('/api/codex-pets/:id/spritesheet', async (req, res) => {
+  app.get('/api/codex-pets/:id/spritesheet', readRateLimit(), async (req, res) => {
     try {
-      const sheet = await readCodexPetSpritesheet(req.params.id, {
+      const sheet = await readCodexPetSpritesheet(String(req.params.id), {
         bundledRoot: BUNDLED_PETS_DIR,
       });
       if (!sheet) {
@@ -382,7 +383,8 @@ export function registerStaticResourceRoutes(app: Express, ctx: RegisterStaticRe
       const buf = await fs.promises.readFile(sheet.absPath);
       res.send(buf);
     } catch (err: any) {
-      res.status(500).type('text/plain').send(String(err));
+      console.error('[static-resource] spritesheet read failed', err);
+      res.status(500).type('text/plain').send('failed to read spritesheet');
     }
   });
 
@@ -450,7 +452,7 @@ export function registerStaticResourceRoutes(app: Express, ctx: RegisterStaticRe
   //   6. First .html in <skillDir>/examples/ — used as a friendly fallback
   //      so a skill that aggregates examples (like live-artifact) still has
   //      a real preview on its parent card instead of returning 404.
-  app.get('/api/skills/:id/example', async (req, res) => {
+  app.get('/api/skills/:id/example', readRateLimit(), async (req, res) => {
     try {
       // Span both functional skills and design templates: rendered example
       // HTML rewrites assets to /api/skills/<id>/... and we want those URLs
@@ -565,7 +567,8 @@ export function registerStaticResourceRoutes(app: Express, ctx: RegisterStaticRe
           'no example.html, assets/template.html, assets/index.html, or examples/*.html for this skill',
         );
     } catch (err: any) {
-      res.status(500).type('text/plain').send(String(err));
+      console.error('[static-resource] skill example render failed', err);
+      res.status(500).type('text/plain').send('failed to render skill example');
     }
   });
 
@@ -576,7 +579,7 @@ export function registerStaticResourceRoutes(app: Express, ctx: RegisterStaticRe
   // The example response above rewrites `./assets/<file>` into a request
   // against this route; we still keep the on-disk paths human-friendly so
   // contributors can preview `example.html` straight from disk.
-  app.get('/api/skills/:id/assets/*splat', async (req, res) => {
+  app.get('/api/skills/:id/assets/*splat', readRateLimit(), async (req, res) => {
     try {
       // Same rationale as /example above — assets need to resolve whether
       // the owning skill folder lives under skills/ or design-templates/.
@@ -603,7 +606,8 @@ export function registerStaticResourceRoutes(app: Express, ctx: RegisterStaticRe
       }
       await res.type(mimeFor(target)).sendFile(target);
     } catch (err: any) {
-      res.status(500).type('text/plain').send(String(err));
+      console.error('[static-resource] skill asset send failed', err);
+      res.status(500).type('text/plain').send('failed to send skill asset');
     }
   });
 
@@ -665,7 +669,7 @@ export function registerStaticResourceRoutes(app: Express, ctx: RegisterStaticRe
     }
   });
 
-  app.post('/api/design-systems/import/local', async (req, res) => {
+  app.post('/api/design-systems/import/local', writeRateLimit(), async (req, res) => {
     if (!requireLocalOrigin(req, res)) return;
     try {
       const body = req.body && typeof req.body === 'object' ? req.body : {};

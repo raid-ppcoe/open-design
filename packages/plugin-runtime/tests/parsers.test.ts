@@ -148,4 +148,25 @@ describe('parseFrontmatter', () => {
     const { data } = parseFrontmatter('---\na: "\n---\n');
     expect(data['a']).toBe('"');
   });
+
+  // A `__proto__:`/`constructor:`/`prototype:` frontmatter key must never
+  // write to a prototype slot, or one SKILL.md could pollute Object.prototype
+  // process-wide. Guarded keys are skipped; safe siblings still parse.
+  it('does not let frontmatter keys pollute Object.prototype', () => {
+    const before = ({} as Record<string, unknown>)['polluted'];
+    const { data } = parseFrontmatter(
+      '---\n__proto__:\n  polluted: yes\nconstructor: bad\nprototype: bad\nname: safe\n---\nbody',
+    );
+    expect(({} as Record<string, unknown>)['polluted']).toBe(before);
+    expect((Object.prototype as Record<string, unknown>)['polluted']).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(data, '__proto__')).toBe(false);
+    // Safe keys on the same document still parse.
+    expect(data['name']).toBe('safe');
+  });
+
+  it('does not pollute Object.prototype via a __proto__ array item key', () => {
+    const { data } = parseFrontmatter('---\n__proto__:\n  - a\n  - b\nname: ok\n---\nbody');
+    expect((Object.prototype as Record<string, unknown>)['0']).toBeUndefined();
+    expect(data['name']).toBe('ok');
+  });
 });

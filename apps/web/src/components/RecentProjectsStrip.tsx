@@ -337,7 +337,18 @@ async function loadDeckCover(src: string): Promise<string> {
 }
 
 function deckPreviewSrcDoc(html: string): string {
-  const withoutScripts = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/giu, '');
+  // Strip repeatedly until stable so nested/overlapping tags cannot survive
+  // one pass (e.g. `<scr<script></script>ipt>` re-forms a `<script>` after a
+  // single replace). Each pass removes paired script blocks AND any residual
+  // lone script open/close tags, so no `<script` token can be reconstructed.
+  let withoutScripts = html;
+  let previous: string;
+  do {
+    previous = withoutScripts;
+    withoutScripts = previous
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/giu, '')
+      .replace(/<\/?script\b[^>]*>/giu, '');
+  } while (withoutScripts !== previous);
   const style = `<style id="od-recent-deck-real-preview">
     html,
     body {

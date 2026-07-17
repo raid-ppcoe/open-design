@@ -2,6 +2,9 @@ import type { Express, Request, Response } from 'express';
 import dns from 'node:dns';
 import https from 'node:https';
 
+import { readRateLimit, writeRateLimit } from '../lib/rate-limit.js';
+import { assertOutboundUrlAllowed } from '../lib/ssrf.js';
+
 import {
   applyAgentLaunchEnv,
   getAgentDef,
@@ -93,10 +96,18 @@ function proxyAmrApiRequest(req: Request, res: Response): void {
     if (lower === 'content-length' && body) continue;
     if (value !== undefined) headers[key] = value;
   }
-  if (body) headers['content-length'] = String(body.length);
+  if (Buffer.isBuffer(body)) headers['content-length'] = String(body.length);
 
+  let requestTarget: URL;
+  try {
+    // Fixed public upstream origin; the guard also breaks the tainted-URL flow.
+    requestTarget = assertOutboundUrlAllowed(target);
+  } catch {
+    res.status(400).json({ error: 'invalid_amr_api_proxy_target' });
+    return;
+  }
   const upstream = https.request(
-    target,
+    requestTarget,
     {
       method: req.method,
       headers,
@@ -185,7 +196,7 @@ export function registerVelaRoutes(app: Express, deps: RegisterVelaRoutesDeps): 
     }
   });
 
-  app.get('/api/integrations/vela/status', async (_req, res) => {
+  app.get('/api/integrations/vela/status', readRateLimit(), async (_req, res) => {
     try {
       const appConfig = await readAppConfig(RUNTIME_DATA_DIR);
       const configuredEnv = agentCliEnvForAgent(appConfig.agentCliEnv, 'amr');
@@ -207,7 +218,7 @@ export function registerVelaRoutes(app: Express, deps: RegisterVelaRoutesDeps): 
 
   app.all('/api/integrations/vela/api-proxy/*splat', proxyAmrApiRequest);
 
-  app.post('/api/integrations/vela/login', async (req, res) => {
+  app.post('/api/integrations/vela/login', writeRateLimit(), async (req, res) => {
     try {
       const appConfig = await readAppConfig(RUNTIME_DATA_DIR);
       const configuredEnv = agentCliEnvForAgent(appConfig.agentCliEnv, 'amr');
@@ -263,7 +274,7 @@ export function registerVelaRoutes(app: Express, deps: RegisterVelaRoutesDeps): 
     }
   });
 
-  app.post('/api/integrations/vela/login/cancel', (_req, res) => {
+  app.post('/api/integrations/vela/login/cancel', writeRateLimit(), (_req, res) => {
     try {
       res.json(cancelVelaLogin());
     } catch (err) {
@@ -318,7 +329,7 @@ export function registerVelaRoutes(app: Express, deps: RegisterVelaRoutesDeps): 
     res.status(202).json(result);
   });
 
-  app.post('/api/integrations/vela/logout', async (_req, res) => {
+  app.post('/api/integrations/vela/logout', writeRateLimit(), async (_req, res) => {
     try {
       const appConfig = await readAppConfig(RUNTIME_DATA_DIR);
       const configuredEnv = agentCliEnvForAgent(appConfig.agentCliEnv, 'amr');

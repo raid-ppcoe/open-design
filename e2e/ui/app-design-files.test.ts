@@ -300,7 +300,7 @@ async function openDesignFile(page: Page, fileName: string) {
   const preview = page.getByTestId('artifact-preview-frame');
   if (await preview.isVisible()) return;
 
-  const fileTab = page.getByRole('tab', { name: new RegExp(fileName.replace(/\./g, '\\.'), 'i') });
+  const fileTab = page.getByRole('tab', { name: new RegExp(fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') });
   if (await fileTab.isVisible()) {
     await fileTab.click();
     return;

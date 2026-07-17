@@ -114,7 +114,9 @@ describe('POST /api/projects/:id/finalize/anthropic — request-lifecycle abort'
     const realFetch = globalThis.fetch;
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = typeof input === 'string' ? input : (input as Request).url;
-      if (url.includes('api.anthropic.com')) {
+      let host = '';
+      try { host = new URL(url).hostname; } catch { /* non-URL input */ }
+      if (host === 'api.anthropic.com') {
         capture.signal = (init as RequestInit | undefined)?.signal ?? null;
         if (capture.signal) {
           capture.signal.addEventListener('abort', () => abortReceived?.());

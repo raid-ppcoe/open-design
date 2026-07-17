@@ -106,7 +106,11 @@ function isValidType(t) {
 // on the `<type>_note` fallback.
 export function deriveMemoryId(type, name) {
   const safeType = isValidType(type) ? type : 'user';
-  const raw = String(name || '');
+  // Cap the input to a constant length before it feeds the regex cleanup and
+  // the hash loop below: bounds the ReDoS surface of the collapse/trim regexes
+  // and the FNV loop against a hostile multi-megabyte `name`. Names are short
+  // labels; the final slug is sliced to 48 anyway.
+  const raw = String(name || '').slice(0, 256);
   const cleaned = raw
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
@@ -131,7 +135,15 @@ function entryPath(dataDir, id) {
   if (typeof id !== 'string' || !/^[a-z0-9_]+$/.test(id) || id.length > 96) {
     throw new Error('invalid memory id');
   }
-  return path.join(memoryDir(dataDir), `${id}.md`);
+  // Containment barrier: even though the charset regex above already rejects
+  // path separators and dots, resolve and re-check so the taint tracker (and a
+  // future looser id rule) can't let a crafted id escape the memory dir.
+  const base = path.resolve(memoryDir(dataDir));
+  const resolved = path.resolve(base, `${id}.md`);
+  if (resolved !== base && !resolved.startsWith(base + path.sep)) {
+    throw new Error('invalid memory id');
+  }
+  return resolved;
 }
 
 function indexPath(dataDir) {

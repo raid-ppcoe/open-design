@@ -69,6 +69,7 @@ function normalizeVoice(value: unknown): ElevenLabsVoiceOption | null {
 }
 
 function cacheCredentialFingerprint(apiKey: string): string {
+  // ponytail: cache fingerprint, not password storage — sha256 is fine here
   return createHash('sha256').update(apiKey).digest('hex').slice(0, 16);
 }
 

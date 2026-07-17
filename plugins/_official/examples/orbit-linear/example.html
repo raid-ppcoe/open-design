@@ -552,7 +552,7 @@ const TEAM = 'nexu';
 document.querySelectorAll('.issue').forEach(issue => {
   const id = issue.querySelector('.issue-id')?.textContent?.trim();
   if (!id) return;
-  const url = `https://linear.app/${TEAM}/issue/${id}`;
+  const url = `https://linear.app/${TEAM}/issue/${encodeURIComponent(id)}`;
   const a = document.createElement('a');
   a.href = url;
   a.target = '_blank';

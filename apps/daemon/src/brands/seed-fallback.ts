@@ -19,6 +19,7 @@
 import type { BrandColor, BrandColorRole, BrandFontSpec } from '@open-design/contracts';
 
 import { extractColors, extractFonts, normalizeColor, type ColorCandidate } from './prefetch.js';
+import { assertOutboundUrlAllowed } from '../lib/ssrf.js';
 
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
@@ -43,16 +44,17 @@ export interface SeedSlot {
 export type SeedFallbackFn = (siteUrl: string, seed: SeedSlot) => Promise<{ changed: boolean }>;
 
 const decodeEntities = (s: string): string =>
+  // Decode `&amp;` LAST so `&amp;#x2F;` resolves to the literal `&#x2F;`, not `/`.
   s
-    .replace(/&amp;/g, '&')
     .replace(/&#x2F;/gi, '/')
     .replace(/&#47;/g, '/')
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&');
 
 function metaContent(html: string, nameOrProp: string): string {
   const re = new RegExp(
-    `<meta[^>]+(?:name|property)=["']${nameOrProp.replace(/[:.]/g, '\\$&')}["'][^>]*>`,
+    `<meta[^>]+(?:name|property)=["']${nameOrProp.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["'][^>]*>`,
     'i',
   );
   const tag = re.exec(html)?.[0];
@@ -62,7 +64,9 @@ function metaContent(html: string, nameOrProp: string): string {
 
 async function fetchText(url: string, cap: number, timeoutMs: number): Promise<string | null> {
   try {
-    const res = await fetch(url, {
+    // Brand site URL is user-supplied — block private/loopback SSRF targets.
+    const safe = assertOutboundUrlAllowed(url);
+    const res = await fetch(safe, {
       headers: { 'User-Agent': UA, Accept: 'text/html,application/xhtml+xml,text/css,*/*;q=0.8' },
       redirect: 'follow',
       signal: AbortSignal.timeout(timeoutMs),

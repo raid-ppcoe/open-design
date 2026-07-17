@@ -19,11 +19,23 @@ export interface TocEntry {
   text: string;
 }
 
+/** Strip HTML tags, applied repeatedly until stable so a single pass can't
+ * leave a reconstituted `<...>` sequence behind (incomplete multi-character
+ * sanitization). */
+function stripHtmlTags(value: string): string {
+  let out = value;
+  let prev: string;
+  do {
+    prev = out;
+    out = out.replace(/<[^>]+>/g, '');
+  } while (out !== prev);
+  return out;
+}
+
 /** Slugify heading text. Keeps Unicode letters/numbers so CJK headings (rich
  * posts are localized) still produce a stable, non-empty anchor. */
 export function slugifyHeading(input: string): string {
-  return input
-    .replace(/<[^>]+>/g, '')
+  return stripHtmlTags(input)
     .replace(/&[a-z0-9#]+;/gi, ' ')
     .toLowerCase()
     .trim()
@@ -55,8 +67,7 @@ export function injectTocIntoHtml(html: string): { html: string; toc: TocEntry[]
     /<(h2|h3)((?:\s[^>]*)?)>([\s\S]*?)<\/\1>/gi,
     (_match, tag: string, attrs: string, inner: string) => {
       const depth = tag.toLowerCase() === 'h2' ? 2 : 3;
-      const text = inner
-        .replace(/<[^>]+>/g, '')
+      const text = stripHtmlTags(inner)
         .replace(/&[a-z0-9#]+;/gi, ' ')
         .trim();
 

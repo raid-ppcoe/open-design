@@ -399,7 +399,10 @@ function stripRootBlocks(css: string): string {
 }
 
 function stripCssComments(css: string): string {
-  return css.replace(/\/\*[\s\S]*?\*\//g, '');
+  // Unrolled-loop C-comment matcher (Friedl): `[^*]*\*+(?:[^/*][^*]*\*+)*`
+  // consumes the body without the catastrophic backtracking that the lazy
+  // `[\s\S]*?\*\/` form exhibits on an unterminated `/*` in hostile CSS.
+  return css.replace(/\/\*[^*]*\*+(?:[^/*][^*]*\*+)*\//g, '');
 }
 
 function stripContainerAtRuleHeaders(css: string): string {
@@ -437,12 +440,14 @@ function extractMetaDescription(html: string): string | undefined {
 }
 
 function decodeBasicEntities(value: string): string {
+  // `&amp;` MUST decode last: doing it first turns `&amp;lt;` into `<` (double
+  // unescaping) instead of the correct literal `&lt;`.
   return value
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>');
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
 }
 
 function optionalText<Key extends string>(key: Key, value: string | undefined): Record<Key, string> | Record<string, never> {

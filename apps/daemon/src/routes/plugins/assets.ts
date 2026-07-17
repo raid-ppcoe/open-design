@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from 'express';
 import type * as BetterSqlite3 from 'better-sqlite3';
 import path from 'node:path';
+import { readRateLimit } from '../../lib/rate-limit.js';
 
 export interface RegisterPluginAssetRoutesDeps {
   db: PluginDbLike;
@@ -123,7 +124,12 @@ export function registerPluginAssetRoutes(app: Express, deps: RegisterPluginAsse
     if (!html) return null;
     const bodyMatch = /<body\b[^>]*>([\s\S]*?)<\/body>/i.exec(html);
     if (!bodyMatch) return null;
-    const body = (bodyMatch[1] ?? '').replace(/<!--[\s\S]*?-->/g, '').trim();
+    // Strip HTML comments to a fixpoint: a single pass can reveal a fresh
+    // `<!-- ... -->` once an overlapping one is removed (e.g. `<!--<!---->-->`),
+    // so repeat until the string stops changing.
+    let body = bodyMatch[1] ?? '';
+    for (let prev = ''; prev !== body; ) { prev = body; body = body.replace(/<!--[\s\S]*?-->/g, ''); }
+    body = body.trim();
     const iframeMatch = /^<iframe\b[^>]*\bsrc\s*=\s*(['"])([^'"]+)\1[^>]*>\s*(?:<\/iframe>)?\s*$/i.exec(body);
     if (!iframeMatch) return null;
     const src = (iframeMatch[2] ?? '').trim();
@@ -194,7 +200,7 @@ export function registerPluginAssetRoutes(app: Express, deps: RegisterPluginAsse
     return found;
   }
 
-  app.get('/api/plugins/:id/preview', async (req, res) => {
+  app.get('/api/plugins/:id/preview', readRateLimit(), async (req, res) => {
     await servePluginSandboxedHtml(req, res, async (plugin) => {
       const curated = collectPluginPreviewCandidates(plugin);
       if (typeof plugin.fsPath !== 'string') return curated;
@@ -204,7 +210,7 @@ export function registerPluginAssetRoutes(app: Express, deps: RegisterPluginAsse
       return curated;
     });
   });
-  app.get('/api/plugins/:id/example/:name', async (req, res) => {
+  app.get('/api/plugins/:id/example/:name', readRateLimit(), async (req, res) => {
     const name = String(req.params.name ?? '');
     if (!name || /[\\/\0]|\.\./.test(name)) return res.status(400).json({ error: 'invalid example name' });
     await servePluginSandboxedHtml(req, res, async (plugin) => {
@@ -223,7 +229,7 @@ export function registerPluginAssetRoutes(app: Express, deps: RegisterPluginAsse
       return [`examples/${name}/index.html`, `examples/${name}.html`];
     });
   });
-  app.get('/api/plugins/:id/asset/*splat', async (req, res) => {
+  app.get('/api/plugins/:id/asset/*splat', readRateLimit(), async (req, res) => {
     try {
       const { getInstalledPlugin } = await import('../../plugins/index.js');
       const plugin = getInstalledPlugin(db, routeParam(req.params.id)) as InstalledPluginLike | null;

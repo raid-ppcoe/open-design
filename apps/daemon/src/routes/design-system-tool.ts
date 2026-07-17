@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from 'express';
 
 import type { ToolTokenGrant } from '../tool-tokens.js';
+import { writeRateLimit } from '../lib/rate-limit.js';
 import { readDesignSystemPullFile } from '../design-systems/index.js';
 
 type ProjectRecord = {
@@ -39,7 +40,7 @@ export function registerDesignSystemToolRoutes(
   const { authorizeToolRequest } = ctx.auth;
   const { sendApiError } = ctx.http;
 
-  app.post('/api/tools/design-systems/read', async (req, res) => {
+  app.post('/api/tools/design-systems/read', writeRateLimit(), async (req, res) => {
     try {
       const grant = authorizeToolRequest(req, res, 'design-systems:read');
       if (!grant) return;

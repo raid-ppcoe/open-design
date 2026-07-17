@@ -3,6 +3,7 @@ import type { Express } from 'express';
 import type { MediaExecutionPolicy } from '@open-design/contracts';
 import { defaultMediaExecutionPolicy, mediaPolicyDenial } from '../media/policy.js';
 import type { RouteDeps } from '../server-context.js';
+import { readRateLimit, writeRateLimit } from '../lib/rate-limit.js';
 import { proxyDispatcherRequestInit } from '../connectionTest.js';
 import {
   aihubmixCatalogUrl,
@@ -104,6 +105,9 @@ export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) 
     const project = getProject(db, projectId);
     if (!project) return res.status(404).json({ error: 'project not found' });
 
+    if (req.body != null && (typeof req.body !== 'object' || Array.isArray(req.body))) {
+      return sendApiError(res, 400, 'BAD_REQUEST', 'request body must be a JSON object');
+    }
     const surface = req.body?.surface;
     if (surface !== 'image' && surface !== 'video' && surface !== 'audio') {
       return sendApiError(res, 400, 'BAD_REQUEST', 'surface must be image, video, or audio');
@@ -369,7 +373,7 @@ export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) 
   // Lightweight existence probe for a single directory, used by the composer
   // to flag a working directory in red the moment its folder is gone (the
   // composer re-checks on focus / picker-open, so deletions reflect live).
-  app.post('/api/dir-exists', async (req, res) => {
+  app.post('/api/dir-exists', writeRateLimit(), async (req, res) => {
     if (!isLocalSameOrigin(req, getResolvedPort())) {
       return res.status(403).json({ error: 'cross-origin request rejected' });
     }
@@ -484,7 +488,7 @@ export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) 
     }
   });
 
-  app.post('/api/projects/:id/media/generate', async (req, res) => {
+  app.post('/api/projects/:id/media/generate', writeRateLimit(), async (req, res) => {
     if (!isLocalSameOrigin(req, getResolvedPort())) {
       return res.status(403).json({
         error:
@@ -496,7 +500,7 @@ export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) 
       const grant = optionalToolGrantFromRequest(req, { operation: 'media:generate' });
       const grantDecision = resolveLegacyMediaRouteGrant({
         grant,
-        projectId: req.params.id,
+        projectId: String(req.params.id),
         requestProjectOverride,
         sandboxMode: isSandboxModeEnabled(process.env),
       });
@@ -509,7 +513,7 @@ export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) 
           grantDecision.details ? { details: grantDecision.details } : {},
         );
       }
-      await handleGenerate(req, res, { projectId: req.params.id, grant: grantDecision.grant });
+      await handleGenerate(req, res, { projectId: String(req.params.id), grant: grantDecision.grant });
     } catch (err: any) {
       const status = typeof err?.status === 'number' ? err.status : 400;
       const code = err?.code;
@@ -575,7 +579,7 @@ export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) 
     }
   });
 
-  app.post('/api/media/tasks/:id/wait', async (req, res) => {
+  app.post('/api/media/tasks/:id/wait', readRateLimit(), async (req, res) => {
     if (!isLocalSameOrigin(req, getResolvedPort())) {
       return res.status(403).json({ error: 'cross-origin request rejected' });
     }

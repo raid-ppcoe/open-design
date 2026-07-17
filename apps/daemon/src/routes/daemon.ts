@@ -1,5 +1,6 @@
 import path from 'node:path';
 import type { Express, RequestHandler } from 'express';
+import { writeRateLimit } from '../lib/rate-limit.js';
 import { readCurrentAppVersionInfo } from '../app-version.js';
 import { getCritiqueMetrics, register } from '../metrics/index.js';
 import { readConformanceHistory } from '../critique/conformance-history.js';
@@ -92,7 +93,7 @@ export function registerDaemonRoutes(app: Express, deps: RegisterDaemonRoutesDep
     }
   });
 
-  app.post('/api/daemon/db/verify', requireLocalDaemonRequest, async (req, res) => {
+  app.post('/api/daemon/db/verify', requireLocalDaemonRequest, writeRateLimit(), async (req, res) => {
     try {
       const { verifySqliteIntegrity } = await import('../storage/db-inspect.js');
       const quick = String(req.query.quick ?? '').toLowerCase();
@@ -103,7 +104,7 @@ export function registerDaemonRoutes(app: Express, deps: RegisterDaemonRoutesDep
     }
   });
 
-  app.post('/api/daemon/db/vacuum', requireLocalDaemonRequest, async (_req, res) => {
+  app.post('/api/daemon/db/vacuum', requireLocalDaemonRequest, writeRateLimit(), async (_req, res) => {
     try {
       const { inspectSqliteDatabase } = await import('../storage/db-inspect.js');
       const file = path.join(paths.RUNTIME_DATA_DIR, 'app.sqlite');

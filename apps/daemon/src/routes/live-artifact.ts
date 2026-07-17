@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import type { RouteDeps } from '../server-context.js';
+import { readRateLimit, writeRateLimit } from '../lib/rate-limit.js';
 
 export interface RegisterLiveArtifactRoutesDeps extends RouteDeps<'db' | 'http' | 'paths' | 'auth' | 'liveArtifacts' | 'projectStore'> {}
 
@@ -101,7 +102,7 @@ export function registerLiveArtifactRoutes(app: Express, ctx: RegisterLiveArtifa
     }
   });
 
-  app.post('/api/tools/live-artifacts/create', async (req, res) => {
+  app.post('/api/tools/live-artifacts/create', writeRateLimit(), async (req, res) => {
     try {
       const toolGrant = authorizeToolRequest(req, res, 'live-artifacts:create');
       if (!toolGrant) return;
@@ -132,7 +133,7 @@ export function registerLiveArtifactRoutes(app: Express, ctx: RegisterLiveArtifa
     }
   });
 
-  app.get('/api/tools/live-artifacts/list', async (req, res) => {
+  app.get('/api/tools/live-artifacts/list', readRateLimit(), async (req, res) => {
     try {
       const toolGrant = authorizeToolRequest(req, res, 'live-artifacts:list');
       if (!toolGrant) return;
@@ -153,7 +154,7 @@ export function registerLiveArtifactRoutes(app: Express, ctx: RegisterLiveArtifa
     }
   });
 
-  app.post('/api/tools/live-artifacts/update', async (req, res) => {
+  app.post('/api/tools/live-artifacts/update', writeRateLimit(), async (req, res) => {
     try {
       const toolGrant = authorizeToolRequest(req, res, 'live-artifacts:update');
       if (!toolGrant) return;
@@ -182,7 +183,7 @@ export function registerLiveArtifactRoutes(app: Express, ctx: RegisterLiveArtifa
     }
   });
 
-  app.post('/api/tools/live-artifacts/refresh', async (req, res) => {
+  app.post('/api/tools/live-artifacts/refresh', writeRateLimit(), async (req, res) => {
     try {
       const toolGrant = authorizeToolRequest(req, res, 'live-artifacts:refresh');
       if (!toolGrant) return;

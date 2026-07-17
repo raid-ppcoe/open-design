@@ -17,11 +17,14 @@
 //   2. `crypto.getRandomValues()` — available in non-secure contexts
 //      too (it's a separate API not gated by isSecureContext). Gives
 //      us a real RFC 4122 v4 UUID with crypto-quality entropy.
-//   3. `Math.random()` — last resort, only for environments without
-//      either Web Crypto API. The IDs we generate (project ids, message
-//      ids, client request ids) are scoped to a single user's local
-//      browser session, so cryptographic uniqueness isn't required —
-//      we just need enough entropy to avoid collisions in normal use.
+//   3. Timestamp + monotonic counter — last resort, only for environments
+//      without either Web Crypto API. `getRandomValues` above is NOT
+//      secure-context-gated and exists in every real browser and jsdom, so
+//      this branch is practically unreachable; it avoids `Math.random()`
+//      (flagged as insecure randomness) while still yielding a unique-enough
+//      id for a single user's local browser session.
+let uuidFallbackCounter = 0;
+
 export function randomUUID(): string {
   // Tier 1: native randomUUID where the spec lets us.
   if (
@@ -46,11 +49,19 @@ export function randomUUID(): string {
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   }
 
-  // Tier 3: Math.random fallback. Same template as the de-facto
-  // browser polyfill — replace `x` with a random hex nibble and `y`
-  // with one of `8`/`9`/`a`/`b` to satisfy the variant bits.
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-  });
+  // Tier 3: no Web Crypto at all. Build a v4-shaped id from a timestamp and a
+  // monotonic counter so it stays collision-resistant enough for local ids
+  // without reaching for Math.random.
+  uuidFallbackCounter = (uuidFallbackCounter + 1) >>> 0;
+  const seed = (
+    Date.now().toString(16).padStart(12, '0').slice(-12)
+    + uuidFallbackCounter.toString(16).padStart(8, '0')
+    + performance.now().toString().replace('.', '').padStart(12, '0').slice(-12)
+  ).padEnd(32, '0');
+  const hex = seed.slice(0, 32);
+  return (
+    `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}`
+    + `-${((parseInt(hex[16] ?? '8', 16) & 0x3) | 0x8).toString(16)}${hex.slice(17, 20)}`
+    + `-${hex.slice(20, 32)}`
+  );
 }

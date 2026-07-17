@@ -24,6 +24,7 @@ import type { AnalyticsContext } from '../analytics.js';
 import { agentCliEnvForAgent, readAppConfig } from '../app-config.js';
 import type { ConnectorService } from '../connectors/service.js';
 import { getProject, listConversations, upsertMessage } from '../db.js';
+import { readRateLimit } from '../lib/rate-limit.js';
 import { readVelaLoginStatus } from '../integrations/vela.js';
 import {
   deriveLangfuseDeliveryState,
@@ -1052,7 +1053,7 @@ export function registerRunRoutes(app: Express, ctx: RegisterRunRoutesDeps) {
     res.json(body);
   });
 
-  app.get('/api/runs/:id/result-package', async (req: ApiRequest, res: ApiResponse) => {
+  app.get('/api/runs/:id/result-package', readRateLimit(), async (req: ApiRequest, res: ApiResponse) => {
     const runId = routeParamId(req);
     if (!runId) return sendApiError(res, 400, 'BAD_REQUEST', 'run id missing');
     const run = design.runs.get(runId);

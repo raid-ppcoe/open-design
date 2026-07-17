@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 
 try:
     import requests
@@ -34,7 +35,8 @@ def _deliver_findings(topic_name: str, counts: dict) -> None:
     message = _format_delivery_message(topic_name, counts, mode)
 
     try:
-        if "hooks.slack.com" in channel:
+        host = (urlparse(channel).hostname or "").lower()
+        if host == "hooks.slack.com":
             _send_slack_webhook(channel, message)
         elif channel.startswith("https://"):
             _send_generic_webhook(channel, message)

@@ -26,15 +26,18 @@ function toWebRuntimeUrl(webRuntimeUrl: string, requestUrl: string): string {
 }
 
 function buildProxyErrorResponse(error: unknown, target: string): Response {
-  const message = error instanceof Error ? error.message : String(error);
   const code =
     error instanceof Error && typeof (error as NodeJS.ErrnoException).code === "string"
       ? (error as NodeJS.ErrnoException).code
       : null;
+  // Log the underlying error server-side only. Never surface err.message/stack
+  // to the renderer-facing od:// response (stack-trace-exposure). The short
+  // errno `code` (e.g. ECONNREFUSED) is a safe, non-stack diagnostic to keep.
+  console.error("od:// protocol proxy failed", { target, error });
   return new Response(
     JSON.stringify({
       error: "OD_PROTOCOL_PROXY_FAILED",
-      message,
+      message: "Protocol proxy request failed.",
       ...(code === null ? {} : { code }),
       target,
     }),

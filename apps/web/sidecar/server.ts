@@ -406,6 +406,16 @@ async function proxyHttpRequest(
   response: ServerResponse,
   options: { daemonWebPort?: number } = {},
 ): Promise<void> {
+  // The proxy only ever targets the trusted daemon/backend origin (the host is
+  // fixed by the caller; only the request path/search flow from the client).
+  // Still, enforce an explicit http/https allowlist so a malformed or
+  // unexpected target scheme cannot be forwarded — answer 400 instead.
+  if (target.protocol !== "http:" && target.protocol !== "https:") {
+    response.statusCode = 400;
+    response.setHeader("content-type", "text/plain; charset=utf-8");
+    response.end("Unsupported proxy target protocol");
+    return;
+  }
   const proxyRequestFactory = target.protocol === "https:" ? createHttpsRequest : createHttpRequest;
   const headers = { ...request.headers, host: target.host };
   if (options.daemonWebPort != null) {

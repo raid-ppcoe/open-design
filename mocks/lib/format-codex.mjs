@@ -22,7 +22,7 @@ function commandFor(name, input) {
     case 'Grep': {
       const pat = typeof o.pattern === 'string' ? o.pattern : '';
       const path = typeof o.path === 'string' ? o.path : '.';
-      return `grep -n "${pat.replace(/"/g, '\\"')}" "${path}"`;
+      return `grep -n "${pat.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}" "${path}"`;
     }
     case 'Glob': {
       const pat = typeof o.pattern === 'string' ? o.pattern : '';

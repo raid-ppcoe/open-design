@@ -97,7 +97,12 @@ export type ResolveResult = ResolveOutcome | ResolveFailure;
 export async function resolvePluginFolder(opts: ResolveOptions): Promise<ResolveResult> {
   const warnings: string[] = [];
   const errors: string[] = [];
-  const folder = opts.folder;
+  // Normalize once and reject NUL bytes (path truncation) before the folder
+  // is used to build the fixed-name manifest reads below.
+  if (opts.folder.includes('\0')) {
+    return { ok: false, errors: ['Invalid plugin folder path'], warnings };
+  }
+  const folder = path.resolve(opts.folder);
 
   let stats: fs.Stats;
   try {

@@ -367,8 +367,16 @@ async function readBoundedBodyWithLimit(
   return text;
 }
 
+// Linear trailing-slash trim. Avoids the `/\/+$/` regex, whose `+`-next-to-`$`
+// shape backtracks quadratically on slash-heavy input (polynomial ReDoS).
+function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47 /* '/' */) end -= 1;
+  return value.slice(0, end);
+}
+
 function resolveLangfuseUrl(env: Env): string {
-  return `${(env.LANGFUSE_BASE_URL?.trim() || DEFAULT_LANGFUSE_BASE_URL).replace(/\/+$/, '')}/api/public/ingestion`;
+  return `${stripTrailingSlashes(env.LANGFUSE_BASE_URL?.trim() || DEFAULT_LANGFUSE_BASE_URL)}/api/public/ingestion`;
 }
 
 function hasLangfuseCredentials(env: Env): boolean {
@@ -394,7 +402,7 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
 }
 
 function normalizeObjectPrefix(raw: string | undefined): string {
-  return (raw ?? 'observability').trim().replace(/^\/+|\/+$/g, '') || 'observability';
+  return stripTrailingSlashes((raw ?? 'observability').trim().replace(/^\/+/, '')) || 'observability';
 }
 
 function safeObjectSegment(value: string): string {

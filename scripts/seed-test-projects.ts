@@ -26,6 +26,7 @@
 // fixtures this script created.
 
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
@@ -732,9 +733,9 @@ async function seedOneOffline(ctx: OfflineSeedContext, fix: SeedFixture): Promis
   await writeFile(entryPath, html, 'utf8');
   const written = await stat(entryPath);
   const file = projectFileMeta(entryFile, written.size, written.mtimeMs);
-  const conversationId = `seed-conv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-  const userMid = `seed-msg-user-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-  const asstMid = `seed-msg-asst-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  const conversationId = `seed-conv-${Date.now().toString(36)}-${randomUUID().slice(0, 5)}`;
+  const userMid = `seed-msg-user-${Date.now().toString(36)}-${randomUUID().slice(0, 5)}`;
+  const asstMid = `seed-msg-asst-${Date.now().toString(36)}-${randomUUID().slice(0, 5)}`;
   const now = Date.now();
   const metadata = seedMetadata(fix);
 

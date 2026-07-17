@@ -258,7 +258,11 @@ async function pickSpritesheet(dir: string, manifest: PetManifest): Promise<Spri
 // (lowercase + hyphens), but also accepts alphanumerics + a small set
 // of safe punctuation to handle pets that users authored manually.
 function sanitizeId(value: unknown): string {
+  // Bound the input to a constant before the trim regexes run: the anchored
+  // `[._-]+$` alternation is polynomial on a hostile all-punctuation string,
+  // and the final result is capped to 80 anyway.
   const collapsed = String(value ?? '')
+    .slice(0, 256)
     .replace(/[^a-zA-Z0-9._-]/g, '')
     .replace(/\.+/g, '.')
     .replace(/^[._-]+|[._-]+$/g, '')

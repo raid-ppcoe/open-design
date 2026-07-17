@@ -47,6 +47,9 @@ function assertInsideLocation(locationRoot: string, projectDir: string): void {
 }
 
 export async function createLocationProjectDir(location: ProjectLocation, projectId: string): Promise<string> {
+  // Validate the id locally (not just inside locationProjectDir) so the
+  // sanitizer is visible right before the directory ops below.
+  if (!isSafeId(projectId)) throw new Error('invalid project id');
   const root = await realpath(location.path);
   const target = locationProjectDir({ ...location, path: root }, projectId);
   await mkdir(target, { recursive: false });

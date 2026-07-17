@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { chromeDumpDom, chromeScreenshot, findChrome } from "./chrome.js";
 import { harvestFonts, type FontFile } from "./fonts.js";
+import { assertOutboundUrlAllowed } from "../lib/ssrf.js";
 
 /**
  * Deterministic brand-material prefetch. Given a site URL, fetch the HTML +
@@ -94,7 +95,10 @@ async function fetchText(
   },
 ): Promise<{ text: string; finalUrl: string; contentType: string; ok: boolean } | null> {
   try {
-    const res = await fetch(url, {
+    // Brand URLs are user-supplied — block private/loopback/link-local targets
+    // so a crafted URL can't turn this into an SSRF probe of the daemon's LAN.
+    const safe = assertOutboundUrlAllowed(url);
+    const res = await fetch(safe, {
       headers: { "User-Agent": UA, Accept: "text/html,application/xhtml+xml,text/css,*/*" },
       redirect: "follow",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -124,7 +128,8 @@ async function fetchBinary(
 ): Promise<{ buf: Buffer; contentType: string } | null> {
   const attempt = async (): Promise<{ buf: Buffer; contentType: string } | null> => {
     try {
-      const res = await fetch(url, {
+      const safe = assertOutboundUrlAllowed(url);
+      const res = await fetch(safe, {
         headers: {
           "User-Agent": UA,
           Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
@@ -204,21 +209,26 @@ function escapeHtml(value: string): string {
 }
 
 function decodeEntities(s: string): string {
+  // Decode `&amp;` LAST. Doing it first would double-decode `&amp;lt;` into `<`
+  // instead of the correct `&lt;`.
   return s
-    .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;|&apos;/g, "'")
     .replace(/&nbsp;/g, " ")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)));
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&amp;/g, "&");
 }
 
 function stripTags(html: string): string {
   return decodeEntities(
     html
-      .replace(/<script[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      // Tolerate attributes and whitespace in the closing tag, and an
+      // unterminated <script>/<style> that runs to end-of-input — a lone
+      // `</script >` or a truncated block must not leave raw JS/CSS behind.
+      .replace(/<script\b[\s\S]*?(?:<\/script\s*>|$)/gi, " ")
+      .replace(/<style\b[\s\S]*?(?:<\/style\s*>|$)/gi, " ")
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " "),
   ).trim();
@@ -349,7 +359,7 @@ function matchAll1(html: string, re: RegExp): string[] {
 
 function metaContent(html: string, nameOrProp: string): string {
   const re = new RegExp(
-    `<meta[^>]+(?:name|property)=["']${nameOrProp.replace(/[:.]/g, "\\$&")}["'][^>]*>`,
+    `<meta[^>]+(?:name|property)=["']${nameOrProp.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["'][^>]*>`,
     "i",
   );
   const tag = re.exec(html)?.[0];

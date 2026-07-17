@@ -603,7 +603,9 @@ async function finalizeBrandCore(opts: FinalizeBrandCoreOptions): Promise<BrandF
     try {
       await reflowBrandToMemory(opts.dataDir, brand);
     } catch (err) {
-      console.warn(`[brand] memory reflow failed for ${id}`, err);
+      // `id` is user-controlled; pass it as a %s arg rather than splicing it
+      // into the format string so a `%s` in the id can't consume `err`.
+      console.warn('[brand] memory reflow failed for %s', id, err);
     }
   }
 

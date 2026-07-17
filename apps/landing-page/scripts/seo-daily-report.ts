@@ -653,7 +653,7 @@ function truncate(value: string, maxLength: number): string {
 }
 
 function escapeTableText(value: string): string {
-  return value.replace(/\|/g, '\\|').replace(/\n/g, ' ');
+  return value.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 }
 
 async function main(): Promise<void> {

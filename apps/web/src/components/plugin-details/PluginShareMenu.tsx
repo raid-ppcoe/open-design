@@ -108,6 +108,19 @@ function buildMarkdownBadge(record: InstalledPluginRecord, url: string): string 
   return `[![${record.title} — Open Design plugin](https://img.shields.io/badge/Open%20Design-${encodeURIComponent(record.title)}-d65a31?logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2C)](${url})`;
 }
 
+// True only when the URL's actual host is github.com (or a github.com
+// subdomain), not merely a URL that contains "github.com/" somewhere in its
+// path — e.g. `https://evil.example/github.com/x` must not count as GitHub.
+function isGithubSourceUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === 'github.com' || host.endsWith('.github.com');
+  } catch {
+    return false;
+  }
+}
+
 export function PluginShareMenu({ record, variant = 'default' }: Props) {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -181,13 +194,14 @@ export function PluginShareMenu({ record, variant = 'default' }: Props) {
   // copy the link address, or open in a new tab from browser chrome.
   const openItems: ShareLinkItem[] = [];
   if (links.sourceUrl) {
+    const sourceIsGithub = isGithubSourceUrl(links.sourceUrl);
     openItems.push({
       key: 'source',
       label:
-        record.sourceKind === 'github' || links.sourceUrl.includes('github.com/')
+        record.sourceKind === 'github' || sourceIsGithub
           ? t('plugins.actions.openSourceGithub')
           : t('plugins.actions.openSource'),
-      icon: links.sourceUrl.includes('github.com/') ? 'github' : 'external-link',
+      icon: sourceIsGithub ? 'github' : 'external-link',
       href: links.sourceUrl,
     });
   }

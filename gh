@@ -1,0 +1,1 @@
+"File Path","Line Number","Description","Link" api /repos/raid-ppcoe/open-design/code-scanning/alerts --paginate --jq .[] | [.most_recent_instance.location.path, .most_recent_instance.location.start_line, .rule.description, .html_url] | @csv

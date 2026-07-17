@@ -267,7 +267,8 @@
   function fontStack(spec) {
     var fams = [spec && spec.family].concat(arr(spec && spec.fallbacks)).filter(Boolean);
     if (!fams.length) fams = ['ui-sans-serif','system-ui','sans-serif'];
-    return fams.map(function (f) { return /\s/.test(f) ? '"' + f + '"' : f; }).join(', ');
+    // Escaped: the result is interpolated into a style="font-family:…" attribute.
+    return esc(fams.map(function (f) { return /\s/.test(f) ? '"' + f + '"' : f; }).join(', '));
   }
 
   var data = payload();
@@ -290,7 +291,12 @@
     .map(function (s) { return s && s.googleFontsUrl; })
     .filter(function (u, i, a) { return u && a.indexOf(u) === i; });
   googleLinks.forEach(function (u) {
-    var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = u; document.head.appendChild(l);
+    try {
+      var parsed = new URL(u, location.href);
+      // Only http(s) font stylesheets; blocks javascript:/data: URLs from the payload.
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return;
+      var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = parsed.href; document.head.appendChild(l);
+    } catch (e) {}
   });
 
   function sectionTitle(t) { return '<h2 class="sec-title">' + esc(t) + '</h2>'; }

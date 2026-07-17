@@ -2734,7 +2734,7 @@ function setLiveArtifactCodeHeaders(res) {
 function bearerTokenFromRequest(req) {
   const header = req.get('authorization');
   if (typeof header !== 'string') return undefined;
-  const match = /^Bearer\s+(.+)$/i.exec(header.trim());
+  const match = /^Bearer\s+(\S.*)$/i.exec(header.trim());
   return match?.[1];
 }
 

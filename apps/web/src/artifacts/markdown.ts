@@ -44,7 +44,11 @@ function formatInline(raw: string): string {
 }
 
 function normalizeSafeHref(href: string): string | null {
-  const decoded = href.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  // Decode in a single pass so `&amp;` is not unescaped ahead of the others
+  // (which would double-decode e.g. `&amp;quot;` into `"` instead of `&quot;`).
+  const decoded = href.replace(/&(amp|quot|#39);/g, (_m, entity: string) =>
+    entity === 'amp' ? '&' : entity === 'quot' ? '"' : "'",
+  );
   // Strip trailing punctuation that commonly follows URLs in natural text.
   // Without this, the link regex captures trailing ", }, ), ., ,, ; into the href,
   // breaking clicks (e.g. `https://github.com/user/repo"}` → href includes the `"`).

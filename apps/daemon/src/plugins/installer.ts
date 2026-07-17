@@ -39,6 +39,7 @@ import type {
 import type Database from 'better-sqlite3';
 import { recordPluginEvent } from './events.js';
 import { upsertPluginLockfileEntry } from './lockfile.js';
+import { assertOutboundUrlAllowed } from '../lib/ssrf.js';
 
 type SqliteDb = Database.Database;
 
@@ -214,6 +215,8 @@ async function* installFromGithub(
 }
 
 function parseGithubSource(source: string): ParsedGithubSource | null {
+  // Bound length before regex matching to keep the match linear-time.
+  if (source.length > 512) return null;
   const match = GITHUB_SOURCE_RE.exec(source);
   if (!match) return null;
   const [, owner, repo, rest = ''] = match;
@@ -584,7 +587,10 @@ async function* installFromArchiveUrl(
 }
 
 async function defaultFetcher(url: string): ReturnType<ArchiveFetcher> {
-  const response = await fetch(url, { redirect: 'follow' });
+  // Block SSRF to private/loopback hosts and non-http(s) schemes before
+  // fetching an attacker-influenceable archive URL.
+  const safeUrl = assertOutboundUrlAllowed(url);
+  const response = await fetch(safeUrl, { redirect: 'follow' });
   return {
     ok: response.ok,
     status: response.status,

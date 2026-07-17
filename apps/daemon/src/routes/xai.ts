@@ -26,6 +26,7 @@
 
 import type { Express } from 'express';
 
+import { writeRateLimit } from '../lib/rate-limit.js';
 import { proxyDispatcherRequestInit } from '../connectionTest.js';
 import { mediaConfigDir, resolveProviderConfig } from '../media/config.js';
 import { PendingAuthCache } from '../mcp-oauth.js';
@@ -111,7 +112,7 @@ export function registerXaiRoutes(app: Express, ctx: RegisterXaiRoutesDeps) {
     }
   };
 
-  app.post('/api/xai/oauth/start', async (req, res) => {
+  app.post('/api/xai/oauth/start', writeRateLimit(), async (req, res) => {
     if (!isLocalSameOrigin(req, getResolvedPort())) {
       return res.status(403).json({ error: 'cross-origin request rejected' });
     }
@@ -147,7 +148,7 @@ export function registerXaiRoutes(app: Express, ctx: RegisterXaiRoutesDeps) {
     }
   });
 
-  app.post('/api/xai/oauth/complete', async (req, res) => {
+  app.post('/api/xai/oauth/complete', writeRateLimit(), async (req, res) => {
     if (!isLocalSameOrigin(req, getResolvedPort())) {
       return res.status(403).json({ error: 'cross-origin request rejected' });
     }

@@ -6,6 +6,7 @@ import { installCodexMcp, probeCodexInstall, uninstallCodexMcp } from './codex-c
 import { MCP_TEMPLATES, buildAcpMcpServers, buildClaudeMcpJson, isManagedProjectCwd, readMcpConfig, writeMcpConfig } from './mcp-config.js';
 import { beginAuth, exchangeCodeForToken, refreshAccessToken } from './mcp-oauth.js';
 import { clearToken, getToken, isTokenExpired, readAllTokens, setToken } from './mcp-tokens.js';
+import { readRateLimit, writeRateLimit } from './lib/rate-limit.js';
 import type { RouteDeps } from './server-context.js';
 
 export interface RegisterMcpRoutesDeps extends RouteDeps<'http' | 'paths' | 'mcp'> {}
@@ -187,7 +188,7 @@ export function registerMcpRoutes(app: Express, ctx: RegisterMcpRoutesDeps) {
   // where OD_PUBLIC_BASE_URL pins the externally-routable URL.
   // ─────────────────────────────────────────────────────────────────
 
-  app.post('/api/mcp/oauth/start', async (req, res) => {
+  app.post('/api/mcp/oauth/start', writeRateLimit(), async (req, res) => {
     if (!isLocalSameOrigin(req, getResolvedPort())) {
       return res.status(403).json({ error: 'cross-origin request rejected' });
     }
@@ -237,7 +238,7 @@ export function registerMcpRoutes(app: Express, ctx: RegisterMcpRoutesDeps) {
       });
     } catch (err: any) {
       const msg = err && err.message ? err.message : String(err);
-      console.error(`[mcp-oauth] start failed serverId=${serverId}:`, msg);
+      console.error('[mcp-oauth] start failed serverId=%s:', serverId, msg);
       res.status(502).json({ error: msg });
     }
   });
@@ -247,7 +248,7 @@ export function registerMcpRoutes(app: Express, ctx: RegisterMcpRoutesDeps) {
   // isLocalSameOrigin: in cloud the daemon IS the public origin, and even
   // locally the request comes back from the OAuth provider's redirect
   // (no Origin header at all on a top-level navigation).
-  app.get('/api/mcp/oauth/callback', async (req, res) => {
+  app.get('/api/mcp/oauth/callback', readRateLimit(), async (req, res) => {
     const code = typeof req.query.code === 'string' ? req.query.code : '';
     const state = typeof req.query.state === 'string' ? req.query.state : '';
     const error = typeof req.query.error === 'string' ? req.query.error : '';
@@ -428,7 +429,7 @@ function renderOAuthResultPage(opts: any) {
   </div>
   <script>
     try {
-      var payload = ${JSON.stringify(payload)};
+      var payload = ${JSON.stringify(payload).replace(/</g, '\\u003c')};
       if (window.opener && !window.opener.closed) {
         window.opener.postMessage(payload, '*');
       }

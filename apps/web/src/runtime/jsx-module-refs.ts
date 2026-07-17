@@ -37,7 +37,14 @@ function normalizeScriptRef(src: string): string {
  */
 export function extractBabelScriptSrcs(html: string | null | undefined): string[] {
   if (!html) return [];
-  const scannable = html.replace(/<!--[\s\S]*?-->/g, '');
+  // Strip comments repeatedly until stable so overlapping/nested comment
+  // markers cannot leave a live `<script>` exposed after a single pass.
+  let scannable = html;
+  let previous: string;
+  do {
+    previous = scannable;
+    scannable = previous.replace(/<!--[\s\S]*?-->/g, '');
+  } while (scannable !== previous);
   const srcs: string[] = [];
   const scriptOpenTag = /<script\b([^>]*)>/gi;
   let match: RegExpExecArray | null;

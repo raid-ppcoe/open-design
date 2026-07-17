@@ -252,6 +252,7 @@ jobs:
         with:
           repository: ${{ github.repository }}
           ref: ${{ steps.report_request.outputs.base_sha }}
+          persist-credentials: false
 
       - name: Setup workspace
         if: ${{ steps.capture_artifacts.outputs.found == 'true' && steps.trusted-pr.outputs.stale != 'true' }}

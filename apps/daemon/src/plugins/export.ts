@@ -66,7 +66,13 @@ export async function exportPlugin(input: ExportInput): Promise<ExportResult> {
   // uninstalled — we fall back to the snapshot's frozen manifest
   // metadata. The .fs_path / SKILL.md copy is best-effort in that
   // case (skip on miss).
-  const folder = path.join(input.outDir, snapshot.pluginId);
+  // Contain the snapshot's plugin id so it stays a single child of the
+  // output directory and cannot traverse (e.g. id = "../../etc").
+  const outRoot = path.resolve(input.outDir);
+  const folder = path.resolve(outRoot, snapshot.pluginId);
+  if (folder !== outRoot && !folder.startsWith(outRoot + path.sep)) {
+    throw new ExportError(`snapshot plugin id is not a safe folder name: ${snapshot.pluginId}`);
+  }
   await fsp.mkdir(folder, { recursive: true });
   const written: string[] = [];
 

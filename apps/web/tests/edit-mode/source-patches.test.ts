@@ -32,7 +32,7 @@ describe('manual edit source patches', () => {
   beforeEach(() => {
     const dom = new JSDOM('');
     globalThis.DOMParser = dom.window.DOMParser;
-    globalThis.CSS = { escape: (value: string) => value.replace(/"/g, '\\"') } as typeof CSS;
+    globalThis.CSS = { escape: (value: string) => value.replace(/\\/g, '\\\\').replace(/"/g, '\\"') } as typeof CSS;
   });
 
   afterEach(() => {

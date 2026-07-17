@@ -124,7 +124,7 @@ export function lintArtifact(rawHtml: unknown): LintFinding[] {
   // Strip HTML comments before any pattern matching — comments often contain
   // pedagogical examples ("paste a `<section class="slide">` here") that
   // would otherwise fire false positives for the section / slide checks.
-  const html = rawHtml.replace(/<!--[\s\S]*?-->/g, '');
+  const html = stripRepeated(rawHtml, /<!--[\s\S]*?-->/g);
   const lower = html.toLowerCase();
 
   // ── P0-1: purple gradient backgrounds ─────────────────────────────
@@ -434,7 +434,7 @@ export function lintArtifact(rawHtml: unknown): LintFinding[] {
   // class system definitions. The seed's <style> block defines the
   // accent on many class selectors that won't all render on one page;
   // the body is what the user actually sees.
-  const styleStripped = html.replace(/<style[\s\S]*?<\/style>/gi, '');
+  const styleStripped = stripRepeated(html, /<style[\s\S]*?<\/style>/gi);
   const accentUsesInBody = (styleStripped.match(/var\(--accent\)/g) ?? []).length;
   if (accentUsesInBody > 6) {
     out.push({
@@ -548,6 +548,20 @@ function clip(s: string): string {
 
 function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Repeatedly apply a stripping regex until the string stops changing. A single
+// pass over a multi-character construct (`<!-- … -->`, `<style>…</style>`) can
+// be bypassed by overlapping/nested markers where one removal reveals another
+// (`<!--<!-- -->-->`); the fixpoint loop closes that gap.
+function stripRepeated(input: string, re: RegExp): string {
+  let out = input;
+  let prev: string;
+  do {
+    prev = out;
+    out = out.replace(re, '');
+  } while (out !== prev);
+  return out;
 }
 
 // Scan every `linear-gradient(...)` body for a blue→cyan two-stop

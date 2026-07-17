@@ -180,7 +180,7 @@ describe('PluginShareMenu', () => {
     await Promise.resolve();
     expect(writes.some((value) => (
       value.includes('Badge Plugin') &&
-      value.includes('https://open-design.ai/plugins/badge-plugin')
+      value.includes('](https://open-design.ai/plugins/badge-plugin)')
     ))).toBe(true);
   });
 
@@ -304,7 +304,7 @@ describe('PluginShareMenu', () => {
       writes.some(
         (value) =>
           value.includes('Community Registry Starter') &&
-          value.includes('https://open-design.ai/plugins/registry-starter/'),
+          value.includes('](https://open-design.ai/plugins/registry-starter/)'),
       ),
     ).toBe(true);
   });

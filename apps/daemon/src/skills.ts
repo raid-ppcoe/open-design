@@ -718,7 +718,9 @@ const RESERVED_SLUGS = new Set(["", ".", ".."]);
 
 export function slugifySkillName(name: unknown): string {
   if (typeof name !== "string") return "";
-  const lowered = name.trim().toLowerCase();
+  // Bound the input before the cleanup regexes run (the result is capped at
+  // 64 chars anyway) so no pathological-length input reaches them.
+  const lowered = name.trim().toLowerCase().slice(0, 256);
   const cleaned = lowered
     .replace(/[^a-z0-9\-_]+/g, "-")
     .replace(/^-+|-+$/g, "")
@@ -812,7 +814,13 @@ export async function importUserSkill(
     .filter(Boolean);
 
   await mkdir(userSkillsRoot, { recursive: true });
-  const dir = path.join(userSkillsRoot, slug);
+  const skillsRoot = path.resolve(userSkillsRoot);
+  const dir = path.join(skillsRoot, slug);
+  // slugifySkillName() already restricts slug to [a-z0-9-_], but assert
+  // containment so the skill dir can never escape the user-skills root.
+  if (dir !== skillsRoot && !dir.startsWith(skillsRoot + path.sep)) {
+    throw new SkillImportError("BAD_REQUEST", "invalid skill slug");
+  }
   // Refuse to overwrite an existing folder. The caller can DELETE first
   // when intentionally replacing a skill.
   try {

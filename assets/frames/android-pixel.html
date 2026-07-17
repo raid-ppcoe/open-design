@@ -153,9 +153,14 @@
       var iframe = document.getElementById('screen');
       if (!raw) return;
       var isAbsolute = /^[a-zA-Z][a-zA-Z\d+.\-]*:/.test(raw) || raw.charAt(0) === '/';
-      iframe.src = isAbsolute
+      var resolved = isAbsolute
         ? raw
         : new URL(raw, document.referrer || location.href).toString();
+      try {
+        var parsed = new URL(resolved, location.href);
+        // Only http(s) targets; blocks javascript:/data: and other unsafe schemes.
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') iframe.src = parsed.href;
+      } catch (e) {}
     })();
   </script>
 </body>

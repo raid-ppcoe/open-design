@@ -3,6 +3,7 @@ import net from 'node:net';
 import type { Express, Request, RequestHandler, Response } from 'express';
 
 import { checkConnectorAccess, type ToolTokenGrant } from '../tool-tokens.js';
+import { readRateLimit, writeRateLimit } from '../lib/rate-limit.js';
 import { validateBoundedJsonObject } from '../live-artifacts/schema.js';
 import { executeConnectorTool, listConnectorTools } from '../tools/connectors.js';
 import { readComposioConfig, readPublicComposioConfig, writeComposioConfig } from './composio-config.js';
@@ -285,8 +286,10 @@ function renderConnectorConnectedHtml(connectorId: string): string {
       .join(' ')
     : 'Connector';
   const connectorLabelHtml = escapeHtml(connectorLabel);
-  const connectorIdJson = JSON.stringify(connectorId);
-  const connectorLabelJson = JSON.stringify(connectorLabel);
+  // Escape `<` so a connectorId/label containing `</script>` can't break out of
+  // the inline <script> below (JSON.stringify alone does not neutralize it).
+  const connectorIdJson = JSON.stringify(connectorId).replace(/</g, '\\u003c');
+  const connectorLabelJson = JSON.stringify(connectorLabel).replace(/</g, '\\u003c');
 
   return `<!doctype html>
 <html lang="en">
@@ -610,7 +613,7 @@ export function registerConnectorRoutes(app: Express, options: RegisterConnector
     }
   });
 
-  app.post('/api/connectors/auth-configs/prepare', requireLocalDaemonRequest, async (req: Request, res: Response) => {
+  app.post('/api/connectors/auth-configs/prepare', requireLocalDaemonRequest, writeRateLimit(), async (req: Request, res: Response) => {
     try {
       const body = isPlainObject(req.body) ? req.body : {};
       const connectorIds = Array.isArray(body.connectorIds)
@@ -675,7 +678,7 @@ export function registerConnectorRoutes(app: Express, options: RegisterConnector
     }
   });
 
-  app.post('/api/connectors/:connectorId/authorization/cancel', requireLocalDaemonRequest, async (req: Request<{ connectorId: string }>, res: Response) => {
+  app.post('/api/connectors/:connectorId/authorization/cancel', requireLocalDaemonRequest, writeRateLimit(), async (req: Request<{ connectorId: string }>, res: Response) => {
     try {
       const connectorId = req.params.connectorId;
       if (!connectorId) return options.sendApiError(res, 400, 'CONNECTOR_NOT_FOUND', 'connectorId is required');
@@ -695,7 +698,7 @@ export function registerConnectorRoutes(app: Express, options: RegisterConnector
     }
   });
 
-  app.get('/api/tools/connectors/list', async (req: Request, res: Response) => {
+  app.get('/api/tools/connectors/list', readRateLimit(), async (req: Request, res: Response) => {
     try {
       if (!options.authorizeToolRequest) {
         options.sendApiError(res, 500, 'CONNECTOR_EXECUTION_FAILED', 'connector tool routes are not configured');
@@ -726,7 +729,7 @@ export function registerConnectorRoutes(app: Express, options: RegisterConnector
     }
   });
 
-  app.post('/api/tools/connectors/execute', async (req: Request, res: Response) => {
+  app.post('/api/tools/connectors/execute', writeRateLimit(), async (req: Request, res: Response) => {
     try {
       if (!options.authorizeToolRequest) {
         options.sendApiError(res, 500, 'CONNECTOR_EXECUTION_FAILED', 'connector tool routes are not configured');

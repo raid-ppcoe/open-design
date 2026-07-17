@@ -24,7 +24,7 @@ function frameScriptFor(frameFile: string): string {
     path.join(repoRoot, 'assets', 'frames', frameFile),
     'utf8',
   );
-  const script = html.match(/<script>\s*([\s\S]*?)\s*<\/script>/);
+  const script = html.match(/<script\b[^>]*>\s*([\s\S]*?)\s*<\/script\s*>/i);
   if (!script?.[1]) {
     throw new Error(`Missing runtime script in ${frameFile}`);
   }

@@ -96,7 +96,8 @@
             link.id = 'theme-link';
             document.head.appendChild(link);
           }
-          link.href = previewThemeBase + e.data.name + '.css';
+          // Restrict to a slug so the theme name can't redirect the stylesheet.
+          link.href = previewThemeBase + String(e.data.name).replace(/[^a-z0-9_-]/gi, '') + '.css';
           document.documentElement.setAttribute('data-theme', e.data.name);
         }
       });
@@ -345,10 +346,13 @@
     }
 
     function buildPresenterHTML(deckUrl, slideMeta, total, startIdx, channelName, currentTheme) {
-      const metaJSON = JSON.stringify(slideMeta);
-      const deckUrlJSON = JSON.stringify(deckUrl);
-      const channelJSON = JSON.stringify(channelName);
-      const themeJSON = JSON.stringify(currentTheme || '');
+      // Escape "<" so a "</script>" inside any value can't break out of the
+      // inline <script> block below when the doc is written via document.write.
+      const jsonForScript = (v) => JSON.stringify(v).replace(/</g, '\\u003c');
+      const metaJSON = jsonForScript(slideMeta);
+      const deckUrlJSON = jsonForScript(deckUrl);
+      const channelJSON = jsonForScript(channelName);
+      const themeJSON = jsonForScript(currentTheme || '');
       const storageKey = 'html-ppt-presenter:' + location.pathname;
 
       // Build the document as a single template string for clarity
@@ -580,7 +584,7 @@
   var total = ${total};
   var idx = ${startIdx};
   var deckUrl = ${deckUrlJSON};
-  var STORAGE_KEY = ${JSON.stringify(storageKey)};
+  var STORAGE_KEY = ${jsonForScript(storageKey)};
   var bc;
   try { bc = new BroadcastChannel(${channelJSON}); } catch(e) {}
 
@@ -903,7 +907,7 @@
         link.id = 'theme-link';
         document.head.appendChild(link);
       }
-      link.href = themeBase + name + '.css';
+      link.href = themeBase + String(name).replace(/[^a-z0-9_-]/gi, '') + '.css';
       root.setAttribute('data-theme', name);
       const ind = document.querySelector('.theme-indicator');
       if (ind) ind.textContent = name;

@@ -216,7 +216,10 @@ function findCloseTag(input: string, from: number, closeTag: string): number {
 }
 
 function parseAttrs(raw: string): Record<string, string> {
-  const re = /(\w+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+  // Require a start-or-whitespace boundary before each attribute name so the
+  // engine skips interior positions instead of re-running `(\w+)\s*=` from
+  // every offset — the un-anchored form is polynomial on a long word-char run.
+  const re = /(?:^|\s)(\w+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
   const out: Record<string, string> = {};
   let m: RegExpExecArray | null;
   while ((m = re.exec(raw)) !== null) {
@@ -429,8 +432,12 @@ export interface ParsedFormAnswers {
   pairs: OdCardField[];
 }
 
-const FORM_ANSWERS_HEADER_RE = /^\s*\[form answers(?:\s*[—\-:]\s*([^\]]+))?\]\s*$/i;
-const FORM_ANSWERS_LINE_RE = /^\s*-\s+([^:]+):\s*(.*)$/;
+// Both patterns drop the `\s*` that sat directly before a capture group: the
+// separator/text overlap on the space char made `\s+([^:]+)` / `\s*([^\]]+)`
+// polynomial on a hostile all-whitespace line. Downstream `.trim()` calls make
+// the tighter capture behavior-identical for well-formed input.
+const FORM_ANSWERS_HEADER_RE = /^\s*\[form answers(?:\s*[—\-:]([^\]]+))?\]\s*$/i;
+const FORM_ANSWERS_LINE_RE = /^\s*-\s([^:]+):(.*)$/;
 
 /**
  * Parse a `[form answers — <id>]` block out of a user message. Returns null
@@ -468,7 +475,9 @@ export function parseFormAnswers(message: string): ParsedFormAnswers | null {
     if (!value || value === '(skipped)') continue;
     // Strip the "[value: …]" annotation formatFormAnswers appends for options
     // whose value differs from the label — the profile wants the human label.
-    const cleanValue = value.replace(/\s*\[value:[^\]]*\]\s*$/i, '').trim();
+    // No leading `\s*` (the trailing `.trim()` absorbs the gap) so the engine
+    // can't re-scan a long whitespace run from every offset — polynomial-safe.
+    const cleanValue = value.replace(/\[value:[^\]]*\]\s*$/i, '').trim();
     pairs.push({ label, value: cleanValue });
   }
   if (!started) return null;

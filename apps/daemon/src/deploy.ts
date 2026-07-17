@@ -1400,7 +1400,10 @@ export function analyzeDeployPlan(input: {
   // whitespace, then the doctype. Built via `new RegExp` so the BOM
   // appears as an explicit U+FEFF escape rather than a literal
   // zero-width character in the regex source.
-  if (!new RegExp('^\\uFEFF?\\s*(?:<!--[\\s\\S]*?-->\\s*)*<!doctype\\s+html', 'i').test(source)) {
+  // The comment body uses an unrolled loop (`[^-]*(?:-(?!->)[^-]*)*`) instead of
+  // a lazy `[\s\S]*?` so a run of unterminated `<!--` can't drive catastrophic
+  // backtracking; it still matches any HTML comment, including embedded dashes.
+  if (!new RegExp('^\\uFEFF?\\s*(?:<!--[^-]*(?:-(?!->)[^-]*)*-->\\s*)*<!doctype\\s+html', 'i').test(source)) {
     pushUnique(acc, {
       code: 'no-doctype',
       path: entryPath,

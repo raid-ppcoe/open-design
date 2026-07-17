@@ -80,7 +80,11 @@ def request(
 
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
 
-    safe_url = re.sub(r'([?&])(key|api_key|token|secret)=[^&]*', r'\1\2=***', url)
+    safe_url = re.sub(
+        r'(?i)([?&])(api[_-]?key|access[_-]?token|token|secret|password|passwd|pwd|auth|signature|sig|key)=[^&]*',
+        r'\1\2=***',
+        url,
+    )
     log(f"{method} {safe_url}")
 
     last_error = None

@@ -365,21 +365,41 @@ function isValidOrbitTime(time: string): boolean {
   return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
 }
 
+function hostnameOf(url: string): string {
+  const raw = (url || '').trim();
+  if (!raw) return '';
+  try {
+    return new URL(raw).hostname.toLowerCase();
+  } catch {
+    try {
+      return new URL(`https://${raw}`).hostname.toLowerCase();
+    } catch {
+      return '';
+    }
+  }
+}
+
+function hostMatches(host: string, domain: string): boolean {
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
 function inferApiProtocol(model: string, baseUrl: string): ApiProtocol {
   try {
-    const normalized = (baseUrl || '').toLowerCase();
+    // Route on the real hostname, not a substring: a URL like
+    // `https://ollama.com.evil.example` must NOT match `ollama.com`.
+    const host = hostnameOf(baseUrl);
     // Any config pointing at ollama.com should resolve to the new ollama
     // protocol so both chat and the connection test hit the native Ollama
     // proxy instead of the Anthropic or OpenAI paths.
-    if (normalized.includes('ollama.com')) return 'ollama';
+    if (hostMatches(host, 'ollama.com')) return 'ollama';
     // SenseAudio host gets routed to its own proxy so the daemon log line
     // and the BYOK tab UI stay consistent with the protocol the user
     // picked — even though the on-wire shape is OpenAI-compatible.
-    if (normalized.includes('senseaudio.cn')) return 'senseaudio';
+    if (hostMatches(host, 'senseaudio.cn')) return 'senseaudio';
     // AIHubMix host routes to its own proxy so the daemon injects the
     // APP-Code attribution header even though the wire shape is
     // OpenAI-compatible.
-    if (normalized.includes('aihubmix.com')) return 'aihubmix';
+    if (hostMatches(host, 'aihubmix.com')) return 'aihubmix';
     return isOpenAICompatible(model, baseUrl) ? 'openai' : 'anthropic';
   } catch {
     // Preserve the rest of the user's settings even if an old saved base URL is
