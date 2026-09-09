@@ -43,7 +43,7 @@
     "lexical": "0.36.2",
     "lucide-react": "1.16.0",
     "motion": "12.40.0",
-    "next": "16.2.6",
+    "next": "16.3.3",
     "openai": "6.38.0",
     "posthog-js": "1.392.0",
     "react": "18.3.1",
@@ -58,7 +58,7 @@
     "@types/react": "18.3.28",
     "@types/react-dom": "18.3.7",
     "jsdom": "29.1.1",
-    "postcss": "8.5.15",
+    "postcss": "8.5.23",
     "tailwindcss": "4.3.0",
     "typescript": "5.9.3",
     "vitest": "4.1.9"
